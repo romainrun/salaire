@@ -53,24 +53,25 @@ jobs:
 
             rm -rf .expo .metro-cache
 
+            fuser -k 8085/tcp || true
             fuser -k 8086/tcp || true
-
-            export CI=1
 
             if command -v pm2 &> /dev/null; then
               pm2 delete salaire 2>/dev/null || true
-              pm2 start npx --name salaire -- expo start --host lan --port 8086 --clear
+              cd "$PROJECT_DIR"
+              pm2 start npm --name salaire --cwd "$PROJECT_DIR" -- start -- --host lan --port 8086 -c
               pm2 save
             else
-              nohup npx expo start --host lan --port 8086 --clear > /tmp/salaire.log 2>&1 &
+              cd "$PROJECT_DIR"
+              nohup npm start -- --host lan --port 8086 -c > /tmp/salaire.log 2>&1 &
             fi
 
-            sleep 5
+            sleep 8
             if ss -tlnp | grep -q 8086; then
               echo "Expo server listening on port 8086"
             else
               echo "WARNING: Port 8086 not yet listening, check logs"
-              cat /tmp/salaire.log 2>/dev/null || pm2 logs salaire --lines 20 2>/dev/null || true
+              pm2 logs salaire --lines 30 --nostream 2>/dev/null || cat /tmp/salaire.log 2>/dev/null || true
             fi
 
             echo "Deploy complete"
