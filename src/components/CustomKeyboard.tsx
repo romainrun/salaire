@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../features/theme/ThemeProvider';
 import { formatCurrency } from '../utils/format';
@@ -63,6 +64,8 @@ export const CustomKeyboard = React.memo(function CustomKeyboard({
   currencySymbol = '€',
 }: CustomKeyboardProps) {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
+  const bottomPad = Platform.OS === 'android' ? Math.max(insets.bottom, 12) : insets.bottom + 8;
   const slideAnim = useRef(new Animated.Value(KEYBOARD_HEIGHT)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
   const isVisible = useRef(false);
@@ -119,6 +122,7 @@ export const CustomKeyboard = React.memo(function CustomKeyboard({
           {
             backgroundColor: theme.surface,
             borderTopColor: theme.border,
+            paddingBottom: bottomPad,
             transform: [{ translateY: slideAnim }],
           },
         ]}
@@ -226,7 +230,7 @@ const styles = StyleSheet.create({
   container: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     borderTopWidth: 1, borderTopLeftRadius: 16, borderTopRightRadius: 16,
-    paddingBottom: 20, zIndex: 20, elevation: 20,
+    zIndex: 20, elevation: 20,
   },
   closeBar: { paddingVertical: 10, borderBottomWidth: 1, alignItems: 'center' },
   closeBarInner: { flexDirection: 'row', alignItems: 'center', gap: 5 },

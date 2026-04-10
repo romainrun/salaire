@@ -1,5 +1,7 @@
 import React from 'react';
+import { Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { MainTabParamList } from './types';
 import { HomeScreen } from '../screens/main/HomeScreen';
 import { TargetSalaryScreen } from '../screens/main/TargetSalaryScreen';
@@ -20,6 +22,8 @@ function TabIcon({ name, focused }: { name: string; focused: boolean; color: str
 
 export function MainTabsNavigator() {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
+  const bottomInset = Platform.OS === 'android' ? Math.max(insets.bottom, 16) : insets.bottom;
 
   return (
     <Tab.Navigator
@@ -29,9 +33,9 @@ export function MainTabsNavigator() {
           backgroundColor: theme.surface,
           borderTopColor: theme.border,
           borderTopWidth: 1,
-          paddingBottom: 8,
           paddingTop: 8,
-          height: 70,
+          paddingBottom: bottomInset,
+          height: 56 + bottomInset,
         },
         tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: theme.textMuted,
