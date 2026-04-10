@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../features/theme/ThemeProvider';
@@ -39,12 +39,21 @@ export function HomeScreen() {
   const symbol = countryData?.currencySymbol ?? '€';
   const smicValue = getSmicForCountry(country);
 
+  const scrollRef = useRef<ScrollView>(null);
+  const inputYRef = useRef(0);
+  const gridYRef = useRef(0);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [editingField, setEditingField] = useState<keyof SalaryResults | null>(null);
   const [editBuffer, setEditBuffer] = useState('');
 
   const openKeyboard = useCallback(() => setKeyboardVisible(true), []);
   const closeKeyboard = useCallback(() => setKeyboardVisible(false), []);
+
+  const scrollToFocused = useCallback((y: number) => {
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ y: Math.max(0, y - 60), animated: true });
+    }, 100);
+  }, []);
 
   const handleTypeChange = useCallback((index: number) => {
     setInputType(index === 0 ? 'gross' : 'net');
@@ -82,17 +91,21 @@ export function HomeScreen() {
 
   const handleFieldPress = useCallback((field: keyof SalaryResults) => {
     setEditingField(field);
-    setEditBuffer(results[field].toString());
+    setEditBuffer('');
+    updateFromField(field, 0);
     setActiveField(field);
     openKeyboard();
-  }, [results, setActiveField, openKeyboard]);
+    scrollToFocused(gridYRef.current);
+  }, [setActiveField, openKeyboard, updateFromField, scrollToFocused]);
 
   const handleInputAreaPress = useCallback(() => {
     setEditingField(null);
     setEditBuffer('');
+    setInputValue('');
     setActiveField('input');
     openKeyboard();
-  }, [setActiveField, openKeyboard]);
+    scrollToFocused(inputYRef.current);
+  }, [setActiveField, openKeyboard, setInputValue, scrollToFocused]);
 
   const handleRecentSelect = useCallback((val: number) => {
     setInputValue(val.toString());
@@ -118,12 +131,12 @@ export function HomeScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       <View style={styles.flex}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-          {/* Header compact */}
+        <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+          {/* Header: title + brut/net on one line */}
           <View style={styles.headerRow}>
             <View style={styles.headerLeft}>
               <Text style={[styles.appTitle, { color: theme.text }]}>Salaire</Text>
-              <Text style={[styles.flag]}>{countryData?.flag}</Text>
+              <Text style={styles.flag}>{countryData?.flag}</Text>
             </View>
             <View style={styles.headerActions}>
               <TouchableOpacity onPress={recalculate} style={styles.headerBtn}><Text style={styles.headerIcon}>🔄</Text></TouchableOpacity>
@@ -132,15 +145,23 @@ export function HomeScreen() {
             </View>
           </View>
 
-          {/* Net highlight */}
-          <AppCard>
-            <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>Net mensuel</Text>
-            <Text style={[styles.netHighlight, { color: theme.primary }]}>
-              {formatCurrency(results.netMonthly, symbol)}
-            </Text>
-          </AppCard>
+          {/* Brut / Net header card — side by side */}
+          <View style={styles.summaryRow}>
+            <AppCard style={styles.summaryCard}>
+              <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Brut mensuel</Text>
+              <Text style={[styles.summaryValue, { color: theme.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                {formatCurrency(results.grossMonthly, symbol)}
+              </Text>
+            </AppCard>
+            <AppCard style={styles.summaryCard}>
+              <Text style={[styles.summaryLabel, { color: theme.primary }]}>Net mensuel</Text>
+              <Text style={[styles.summaryValue, { color: theme.primary }]} numberOfLines={1} adjustsFontSizeToFit>
+                {formatCurrency(results.netMonthly, symbol)}
+              </Text>
+            </AppCard>
+          </View>
 
-          {/* Controls row: type + period side by side */}
+          {/* Controls row */}
           <View style={styles.controlsRow}>
             <View style={styles.controlHalf}>
               <SegmentedControl values={['Brut', 'Net']} selectedIndex={inputType === 'gross' ? 0 : 1} onChange={handleTypeChange} />
@@ -151,21 +172,27 @@ export function HomeScreen() {
           </View>
 
           {/* Input */}
-          <TouchableOpacity onPress={handleInputAreaPress} activeOpacity={0.9}>
-            <AppCard style={activeField === 'input' ? { borderColor: theme.primary, borderWidth: 1.5 } : undefined}>
-              <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>
-                {inputType === 'gross' ? 'Brut' : 'Net'} {period === 'monthly' ? 'mensuel' : period === 'yearly' ? 'annuel' : 'journalier'}
-              </Text>
-              <Text style={[styles.inputDisplay, { color: theme.text }]}>
-                {inputValue || '0'} {symbol}
-              </Text>
-            </AppCard>
-          </TouchableOpacity>
+          <View
+            onLayout={(e) => { inputYRef.current = e.nativeEvent.layout.y; }}
+          >
+            <TouchableOpacity onPress={handleInputAreaPress} activeOpacity={0.9}>
+              <AppCard style={activeField === 'input' ? { borderColor: theme.primary, borderWidth: 1.5 } : undefined}>
+                <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>
+                  {inputType === 'gross' ? 'Brut' : 'Net'} {period === 'monthly' ? 'mensuel' : period === 'yearly' ? 'annuel' : 'journalier'}
+                </Text>
+                <Text style={[styles.inputDisplay, { color: theme.text }]}>
+                  {inputValue || '0'} {symbol}
+                </Text>
+              </AppCard>
+            </TouchableOpacity>
+          </View>
 
           {/* Results grid */}
-          <AppCard>
-            <ResultGrid results={results} symbol={symbol} activeField={activeField} onFieldPress={handleFieldPress} />
-          </AppCard>
+          <View onLayout={(e) => { gridYRef.current = e.nativeEvent.layout.y; }}>
+            <AppCard>
+              <ResultGrid results={results} symbol={symbol} activeField={activeField} onFieldPress={handleFieldPress} />
+            </AppCard>
+          </View>
 
           {/* History */}
           {history.length > 0 && (
@@ -223,8 +250,10 @@ const styles = StyleSheet.create({
   headerActions: { flexDirection: 'row', gap: 8 },
   headerBtn: { padding: 4 },
   headerIcon: { fontSize: 17 },
-  cardLabel: { fontSize: 12, fontWeight: '500', marginBottom: 2 },
-  netHighlight: { fontSize: 28, fontWeight: '900' },
+  summaryRow: { flexDirection: 'row', gap: 8, marginBottom: 0 },
+  summaryCard: { flex: 1, marginBottom: 8 },
+  summaryLabel: { fontSize: 11, fontWeight: '600', marginBottom: 2 },
+  summaryValue: { fontSize: 20, fontWeight: '900' },
   controlsRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
   controlHalf: { flex: 1 },
   inputLabel: { fontSize: 11, fontWeight: '500', marginBottom: 2 },
