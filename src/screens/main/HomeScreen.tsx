@@ -1,10 +1,9 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Share, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../features/theme/ThemeProvider';
 import { useSalaryStore } from '../../store/salaryStore';
 import { useOnboardingStore } from '../../store/onboardingStore';
-import { usePremiumStore } from '../../store/premiumStore';
 import { AppCard } from '../../components/AppCard';
 import { SegmentedControl } from '../../components/SegmentedControl';
 import { ResultGrid } from '../../components/ResultGrid';
@@ -35,14 +34,22 @@ export function HomeScreen() {
   const loadSimulation = useSalaryStore((s) => s.loadSimulation);
   const recalculate = useSalaryStore((s) => s.recalculate);
   const country = useOnboardingStore((s) => s.country);
-  const currency = useOnboardingStore((s) => s.currency);
 
   const countryData = getCountryByCode(country);
   const symbol = countryData?.currencySymbol ?? '€';
   const smicValue = getSmicForCountry(country);
 
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [editingField, setEditingField] = useState<keyof SalaryResults | null>(null);
   const [editBuffer, setEditBuffer] = useState('');
+
+  const openKeyboard = useCallback(() => {
+    setKeyboardVisible(true);
+  }, []);
+
+  const closeKeyboard = useCallback(() => {
+    setKeyboardVisible(false);
+  }, []);
 
   const handleTypeChange = useCallback(
     (index: number) => {
@@ -64,15 +71,16 @@ export function HomeScreen() {
       if (editingField) {
         setEditBuffer((prev) => {
           if (key === '.' && prev.includes('.')) return prev;
-          return prev + key;
+          const newBuf = prev + key;
+          const newVal = parseInputAmount(newBuf);
+          updateFromField(editingField, newVal);
+          return newBuf;
         });
-        const newVal = parseInputAmount(editBuffer + key);
-        updateFromField(editingField, newVal);
       } else {
         setInputValue(inputValue + key);
       }
     },
-    [inputValue, setInputValue, editingField, editBuffer, updateFromField]
+    [inputValue, setInputValue, editingField, updateFromField]
   );
 
   const handleDelete = useCallback(() => {
@@ -93,15 +101,17 @@ export function HomeScreen() {
       setEditingField(field);
       setEditBuffer(results[field].toString());
       setActiveField(field);
+      openKeyboard();
     },
-    [results, setActiveField]
+    [results, setActiveField, openKeyboard]
   );
 
   const handleInputAreaPress = useCallback(() => {
     setEditingField(null);
     setEditBuffer('');
     setActiveField('input');
-  }, [setActiveField]);
+    openKeyboard();
+  }, [setActiveField, openKeyboard]);
 
   const handleRecentSelect = useCallback(
     (val: number) => {
@@ -135,7 +145,7 @@ export function HomeScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={styles.flex}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
           <View style={styles.headerRow}>
             <View>
@@ -184,7 +194,7 @@ export function HomeScreen() {
                 {inputType === 'gross' ? 'Brut' : 'Net'} {period === 'monthly' ? 'mensuel' : period === 'yearly' ? 'annuel' : 'journalier'}
               </Text>
               <Text style={[styles.inputDisplay, { color: theme.text }]}>
-                {editingField === null ? (inputValue || '0') : (inputValue || '0')} {symbol}
+                {inputValue || '0'} {symbol}
               </Text>
             </AppCard>
           </TouchableOpacity>
@@ -221,9 +231,13 @@ export function HomeScreen() {
               ))}
             </AppCard>
           )}
+
+          <View style={styles.bottomPadding} />
         </ScrollView>
 
         <CustomKeyboard
+          visible={keyboardVisible}
+          onClose={closeKeyboard}
           onKeyPress={handleKeyPress}
           onDelete={handleDelete}
           recentValues={recentValues}
@@ -233,7 +247,7 @@ export function HomeScreen() {
           onSmicPress={handleSmicPress}
           currencySymbol={symbol}
         />
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -261,4 +275,5 @@ const styles = StyleSheet.create({
   historyTitle: { fontSize: 14, fontWeight: '600' },
   historyDate: { fontSize: 12, marginTop: 2 },
   historyValue: { fontSize: 16, fontWeight: '700' },
+  bottomPadding: { height: 40 },
 });
