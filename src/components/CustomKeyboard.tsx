@@ -1,11 +1,11 @@
 import React, { useCallback, useMemo, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../features/theme/ThemeProvider';
 import { formatCurrency } from '../utils/format';
 
-const KEYBOARD_HEIGHT = 340;
-const ANIMATION_DURATION = 250;
+const KEYBOARD_HEIGHT = 380;
+const ANIM_DURATION = 250;
 
 interface CustomKeyboardProps {
   visible: boolean;
@@ -18,7 +18,6 @@ interface CustomKeyboardProps {
   smicValue?: number | null;
   onSmicPress?: () => void;
   currencySymbol?: string;
-  onCurrencyToggle?: (currency: string) => void;
 }
 
 function KeyButton({
@@ -62,38 +61,24 @@ export const CustomKeyboard = React.memo(function CustomKeyboard({
   smicValue,
   onSmicPress,
   currencySymbol = '€',
-  onCurrencyToggle,
 }: CustomKeyboardProps) {
   const { theme } = useTheme();
-  const slideAnim = useRef(new Animated.Value(visible ? 0 : KEYBOARD_HEIGHT)).current;
-  const backdropAnim = useRef(new Animated.Value(visible ? 1 : 0)).current;
+  const slideAnim = useRef(new Animated.Value(KEYBOARD_HEIGHT)).current;
+  const backdropAnim = useRef(new Animated.Value(0)).current;
+  const isVisible = useRef(false);
 
   useEffect(() => {
-    if (visible) {
+    if (visible && !isVisible.current) {
+      isVisible.current = true;
       Animated.parallel([
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: ANIMATION_DURATION,
-          useNativeDriver: true,
-        }),
-        Animated.timing(backdropAnim, {
-          toValue: 1,
-          duration: ANIMATION_DURATION,
-          useNativeDriver: true,
-        }),
+        Animated.timing(slideAnim, { toValue: 0, duration: ANIM_DURATION, useNativeDriver: true }),
+        Animated.timing(backdropAnim, { toValue: 1, duration: ANIM_DURATION, useNativeDriver: true }),
       ]).start();
-    } else {
+    } else if (!visible && isVisible.current) {
+      isVisible.current = false;
       Animated.parallel([
-        Animated.timing(slideAnim, {
-          toValue: KEYBOARD_HEIGHT,
-          duration: ANIMATION_DURATION,
-          useNativeDriver: true,
-        }),
-        Animated.timing(backdropAnim, {
-          toValue: 0,
-          duration: ANIMATION_DURATION,
-          useNativeDriver: true,
-        }),
+        Animated.timing(slideAnim, { toValue: KEYBOARD_HEIGHT, duration: ANIM_DURATION, useNativeDriver: true }),
+        Animated.timing(backdropAnim, { toValue: 0, duration: ANIM_DURATION, useNativeDriver: true }),
       ]).start();
     }
   }, [visible, slideAnim, backdropAnim]);
@@ -120,16 +105,15 @@ export const CustomKeyboard = React.memo(function CustomKeyboard({
 
   return (
     <>
-      {visible && (
-        <Animated.View
-          pointerEvents="auto"
-          style={[styles.backdrop, { opacity: backdropAnim }]}
-        >
-          <TouchableOpacity style={styles.backdropTouch} activeOpacity={1} onPress={handleClose} />
-        </Animated.View>
-      )}
+      <Animated.View
+        pointerEvents={visible ? 'auto' : 'none'}
+        style={[styles.backdrop, { opacity: backdropAnim }]}
+      >
+        <TouchableOpacity style={styles.backdropTouch} activeOpacity={1} onPress={handleClose} />
+      </Animated.View>
 
       <Animated.View
+        pointerEvents={visible ? 'auto' : 'none'}
         style={[
           styles.container,
           {
@@ -139,37 +123,16 @@ export const CustomKeyboard = React.memo(function CustomKeyboard({
           },
         ]}
       >
-        <View style={[styles.handleBar, { borderBottomColor: theme.border }]}>
-          <View style={[styles.handleIndicator, { backgroundColor: theme.textMuted }]} />
-          <TouchableOpacity onPress={handleClose} style={styles.closeBtn} activeOpacity={0.6}>
-            <Text style={[styles.closeIcon, { color: theme.textSecondary }]}>⌄</Text>
-            <Text style={[styles.closeText, { color: theme.textSecondary }]}>Fermer</Text>
-          </TouchableOpacity>
-        </View>
-
-        {recentValues.length > 0 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.suggestionsRow}
-            contentContainerStyle={styles.suggestionsContent}
-          >
-            {recentValues.map((val, i) => (
-              <TouchableOpacity
-                key={`${val}-${i}`}
-                style={[styles.suggestion, { backgroundColor: theme.surfaceLight, borderColor: theme.border }]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  onRecentSelect?.(val);
-                }}
-              >
-                <Text style={[styles.suggestionText, { color: theme.primary }]}>
-                  {formatCurrency(val, currencySymbol)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        )}
+        <TouchableOpacity
+          onPress={handleClose}
+          activeOpacity={0.7}
+          style={[styles.closeBar, { borderBottomColor: theme.border }]}
+        >
+          <View style={styles.closeBarInner}>
+            <Text style={[styles.closeArrow, { color: theme.textSecondary }]}>↓</Text>
+            <Text style={[styles.closeLabel, { color: theme.textSecondary }]}>Fermer</Text>
+          </View>
+        </TouchableOpacity>
 
         <ScrollView
           horizontal
@@ -177,31 +140,6 @@ export const CustomKeyboard = React.memo(function CustomKeyboard({
           style={styles.quickRow}
           contentContainerStyle={styles.quickContent}
         >
-          {onCurrencyToggle && (
-            <>
-              {['€', '$', '£'].map((c) => (
-                <TouchableOpacity
-                  key={c}
-                  style={[
-                    styles.quickBtn,
-                    {
-                      backgroundColor: currencySymbol === c ? theme.primary : theme.surfaceLight,
-                      borderColor: currencySymbol === c ? theme.primary : theme.border,
-                    },
-                  ]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    onCurrencyToggle(c);
-                  }}
-                >
-                  <Text style={[styles.quickBtnText, { color: currencySymbol === c ? '#FFF' : theme.text }]}>
-                    {c}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-              <View style={styles.quickSeparator} />
-            </>
-          )}
           {quickAmounts.map((qa) => (
             <TouchableOpacity
               key={qa.label}
@@ -235,6 +173,30 @@ export const CustomKeyboard = React.memo(function CustomKeyboard({
           )}
         </ScrollView>
 
+        {recentValues.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.suggestionsRow}
+            contentContainerStyle={styles.suggestionsContent}
+          >
+            {recentValues.map((val, i) => (
+              <TouchableOpacity
+                key={`${val}-${i}`}
+                style={[styles.suggestion, { backgroundColor: theme.surfaceLight, borderColor: theme.border }]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onRecentSelect?.(val);
+                }}
+              >
+                <Text style={[styles.suggestionText, { color: theme.primary }]}>
+                  {formatCurrency(val, currencySymbol)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+
         <View style={styles.keysGrid}>
           {keys.map((row, ri) => (
             <View key={ri} style={styles.keyRow}>
@@ -261,12 +223,10 @@ export const CustomKeyboard = React.memo(function CustomKeyboard({
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(0,0,0,0.35)',
     zIndex: 10,
   },
-  backdropTouch: {
-    flex: 1,
-  },
+  backdropTouch: { flex: 1 },
   container: {
     position: 'absolute',
     bottom: 0,
@@ -275,56 +235,40 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingBottom: 24,
+    paddingBottom: 28,
     zIndex: 20,
     elevation: 20,
   },
-  handleBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
+  closeBar: {
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    position: 'relative',
+    alignItems: 'center',
   },
-  handleIndicator: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    position: 'absolute',
-    top: 6,
-  },
-  closeBtn: {
-    position: 'absolute',
-    right: 16,
+  closeBarInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    gap: 4,
+    gap: 6,
   },
-  closeIcon: {
-    fontSize: 22,
-    fontWeight: '800',
-    lineHeight: 22,
+  closeArrow: {
+    fontSize: 18,
+    fontWeight: '700',
   },
-  closeText: {
-    fontSize: 13,
+  closeLabel: {
+    fontSize: 15,
     fontWeight: '600',
   },
+  quickRow: { maxHeight: 46, marginTop: 10 },
+  quickContent: { paddingHorizontal: 14, gap: 8, alignItems: 'center' },
+  quickBtn: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10, borderWidth: 1 },
+  quickBtnText: { fontSize: 14, fontWeight: '700' },
+  smicBtn: { paddingHorizontal: 18, paddingVertical: 9, borderRadius: 10, borderWidth: 1.5 },
+  smicBtnText: { fontSize: 14, fontWeight: '800' },
   suggestionsRow: { maxHeight: 44, marginTop: 8 },
-  suggestionsContent: { paddingHorizontal: 12, gap: 8, alignItems: 'center' },
+  suggestionsContent: { paddingHorizontal: 14, gap: 8, alignItems: 'center' },
   suggestion: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
   suggestionText: { fontSize: 13, fontWeight: '700' },
-  quickRow: { maxHeight: 44, marginTop: 8 },
-  quickContent: { paddingHorizontal: 12, gap: 6, alignItems: 'center' },
-  quickBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
-  quickBtnText: { fontSize: 13, fontWeight: '700' },
-  quickSeparator: { width: 1, height: 24, backgroundColor: '#333', marginHorizontal: 4 },
-  smicBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, borderWidth: 1.5 },
-  smicBtnText: { fontSize: 13, fontWeight: '800' },
-  keysGrid: { marginTop: 10, paddingHorizontal: 16, gap: 8 },
+  keysGrid: { marginTop: 12, paddingHorizontal: 16, gap: 8 },
   keyRow: { flexDirection: 'row', gap: 8 },
-  key: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12 },
-  keyText: { fontSize: 22, fontWeight: '700' },
+  key: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 12 },
+  keyText: { fontSize: 24, fontWeight: '700' },
 });
