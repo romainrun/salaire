@@ -41,4 +41,11 @@ export interface SimulationHistoryItem {
   pasRate: number;
   countryCode: string;
   results: SalaryResults;
+  favorite: boolean;
+}
+
+export interface AdvancedOptions {
+  bonus: number;
+  thirteenthMonth: boolean;
+  customWorkDays: number;
 }

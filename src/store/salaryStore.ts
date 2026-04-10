@@ -1,12 +1,12 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { zustandStorage } from './persist';
-import type { SalaryInputType, SalaryMode, SalaryPeriod, SalaryResults, SimulationHistoryItem } from '../types';
+import type { SalaryInputType, SalaryMode, SalaryPeriod, SalaryResults, SimulationHistoryItem, AdvancedOptions } from '../types';
 import { recalculateFromInput, recalculateFromField, emptyResults } from '../utils/salary';
-import { parseInputAmount } from '../utils/format';
+import { parseSalaryInput } from '../utils/parseSalaryInput';
 import { generateId } from '../utils/ids';
 
-const MAX_HISTORY = 10;
+const MAX_HISTORY = 20;
 const MAX_RECENT_VALUES = 5;
 
 interface SalaryState {
@@ -25,12 +25,16 @@ interface SalaryState {
   countryCode: string;
   activeField: keyof SalaryResults | 'input';
   autoSaveEnabled: boolean;
+  advanced: AdvancedOptions;
+  displayCurrency: string;
 
   setInputValue: (value: string) => void;
   setInputType: (type: SalaryInputType) => void;
   setPeriod: (period: SalaryPeriod) => void;
   setMode: (mode: SalaryMode) => void;
   setActiveField: (field: keyof SalaryResults | 'input') => void;
+  setDisplayCurrency: (code: string) => void;
+  setAdvanced: (patch: Partial<AdvancedOptions>) => void;
   updateFromField: (field: keyof SalaryResults, value: number) => void;
   recalculate: () => void;
   initializeFromSettings: (settings: {
@@ -53,6 +57,7 @@ interface SalaryState {
   loadSimulation: (item: SimulationHistoryItem) => void;
   deleteHistoryItem: (id: string) => void;
   renameHistoryItem: (id: string, title: string) => void;
+  toggleFavorite: (id: string) => void;
   clearHistory: () => void;
   resetInput: () => void;
   reset: () => void;
@@ -67,7 +72,7 @@ function computeResults(state: {
   pasRate: number;
   monthsPerYear: number;
 }): SalaryResults {
-  const value = parseInputAmount(state.inputValue);
+  const value = parseSalaryInput(state.inputValue);
   return recalculateFromInput(value, state.inputType, state.period, {
     taxRate: state.taxRate,
     pasEnabled: state.pasEnabled,
@@ -100,33 +105,33 @@ export const useSalaryStore = create<SalaryState>()(
       countryCode: 'FR',
       activeField: 'input',
       autoSaveEnabled: true,
+      advanced: { bonus: 0, thirteenthMonth: false, customWorkDays: 260 },
+      displayCurrency: 'EUR',
 
       setInputValue: (value) => {
         set((state) => {
           const results = computeResults({ ...state, inputValue: value });
-          const numValue = parseInputAmount(value);
+          const numValue = parseSalaryInput(value);
           const recentValues = numValue > 0 ? addToRecent(state.recentValues, numValue) : state.recentValues;
           return { inputValue: value, results, recentValues, activeField: 'input' };
         });
       },
 
       setInputType: (type) => {
-        set((state) => {
-          const results = computeResults({ ...state, inputType: type });
-          return { inputType: type, results };
-        });
+        set((state) => ({ inputType: type, results: computeResults({ ...state, inputType: type }) }));
       },
 
       setPeriod: (period) => {
-        set((state) => {
-          const results = computeResults({ ...state, period });
-          return { period, results };
-        });
+        set((state) => ({ period, results: computeResults({ ...state, period }) }));
       },
 
       setMode: (mode) => set({ mode }),
-
       setActiveField: (field) => set({ activeField: field }),
+      setDisplayCurrency: (code) => set({ displayCurrency: code }),
+
+      setAdvanced: (patch) => {
+        set((state) => ({ advanced: { ...state.advanced, ...patch } }));
+      },
 
       updateFromField: (field, value) => {
         const state = get();
@@ -137,21 +142,8 @@ export const useSalaryStore = create<SalaryState>()(
           monthsPerYear: state.monthsPerYear,
         });
         const isGross = field.startsWith('gross');
-        let inputValue: string;
-        if (field.includes('Monthly')) {
-          inputValue = value.toString();
-        } else if (field.includes('Yearly')) {
-          inputValue = (isGross ? results.grossMonthly : results.netMonthly).toString();
-        } else {
-          inputValue = (isGross ? results.grossMonthly : results.netMonthly).toString();
-        }
-        set({
-          results,
-          inputValue,
-          inputType: isGross ? 'gross' : 'net',
-          period: 'monthly',
-          activeField: field,
-        });
+        const inputValue = (isGross ? results.grossMonthly : results.netMonthly).toString();
+        set({ results, inputValue, inputType: isGross ? 'gross' : 'net', period: 'monthly', activeField: field });
       },
 
       recalculate: () => {
@@ -175,35 +167,24 @@ export const useSalaryStore = create<SalaryState>()(
       fillSmic: (smicValue) => {
         set((state) => {
           const inputValue = smicValue.toString();
-          const results = computeResults({
-            ...state,
-            inputValue,
-            inputType: 'gross',
-            period: 'monthly',
-          });
-          return {
-            inputValue,
-            inputType: 'gross' as const,
-            period: 'monthly' as const,
-            results,
-            activeField: 'input' as const,
-          };
+          const results = computeResults({ ...state, inputValue, inputType: 'gross', period: 'monthly' });
+          return { inputValue, inputType: 'gross' as const, period: 'monthly' as const, results, activeField: 'input' as const };
         });
       },
 
       addQuickAmount: (amount) => {
         set((state) => {
-          const current = parseInputAmount(state.inputValue);
+          const current = parseSalaryInput(state.inputValue);
           const newValue = Math.max(0, current + amount);
           const inputValue = newValue.toString();
-          const results = computeResults({ ...state, inputValue });
-          return { inputValue, results };
+          return { inputValue, results: computeResults({ ...state, inputValue }) };
         });
       },
 
       saveSimulation: (title) => {
         const state = get();
-        const value = parseInputAmount(state.inputValue);
+        const value = parseSalaryInput(state.inputValue);
+        if (value <= 0) return;
         const item: SimulationHistoryItem = {
           id: generateId(),
           title: title || `Simulation du ${new Date().toLocaleDateString('fr-FR')}`,
@@ -216,61 +197,42 @@ export const useSalaryStore = create<SalaryState>()(
           pasRate: state.pasRate,
           countryCode: state.countryCode,
           results: state.results,
+          favorite: false,
         };
-        set((s) => ({
-          history: [item, ...s.history].slice(0, MAX_HISTORY),
-        }));
+        set((s) => ({ history: [item, ...s.history].slice(0, MAX_HISTORY) }));
       },
 
       loadSimulation: (item) => {
-        set({
-          inputValue: item.inputValue.toString(),
-          inputType: item.inputType,
-          period: item.period,
-          results: item.results,
-          activeField: 'input',
-        });
+        set({ inputValue: item.inputValue.toString(), inputType: item.inputType, period: item.period, results: item.results, activeField: 'input' });
       },
 
       deleteHistoryItem: (id) => {
-        set((state) => ({
-          history: state.history.filter((h) => h.id !== id),
-        }));
+        set((state) => ({ history: state.history.filter((h) => h.id !== id) }));
       },
 
       renameHistoryItem: (id, title) => {
+        set((state) => ({ history: state.history.map((h) => h.id === id ? { ...h, title } : h) }));
+      },
+
+      toggleFavorite: (id) => {
         set((state) => ({
-          history: state.history.map((h) =>
-            h.id === id ? { ...h, title } : h
-          ),
+          history: state.history.map((h) => h.id === id ? { ...h, favorite: !h.favorite } : h),
         }));
       },
 
       clearHistory: () => set({ history: [], recentValues: [] }),
-
       resetInput: () => set({ inputValue: '', results: emptyResults(), activeField: 'input' }),
 
       reset: () =>
         set({
-          inputValue: '',
-          inputType: 'gross',
-          period: 'monthly',
-          mode: 'simple',
-          results: emptyResults(),
-          history: [],
-          recentValues: [],
-          taxRate: 0.23,
-          pasEnabled: false,
-          pasRate: 0,
-          workHoursPerWeek: 35,
-          monthsPerYear: 12,
-          countryCode: 'FR',
-          activeField: 'input',
+          inputValue: '', inputType: 'gross', period: 'monthly', mode: 'simple',
+          results: emptyResults(), history: [], recentValues: [],
+          taxRate: 0.23, pasEnabled: false, pasRate: 0, workHoursPerWeek: 35,
+          monthsPerYear: 12, countryCode: 'FR', activeField: 'input',
+          advanced: { bonus: 0, thirteenthMonth: false, customWorkDays: 260 },
+          displayCurrency: 'EUR',
         }),
     }),
-    {
-      name: 'salary-storage',
-      storage: createJSONStorage(() => zustandStorage),
-    }
+    { name: 'salary-storage', storage: createJSONStorage(() => zustandStorage) }
   )
 );

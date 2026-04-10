@@ -7,6 +7,7 @@ export type OnboardingStackParamList = {
 
 export type MainTabParamList = {
   Home: undefined;
+  Compare: undefined;
   Target: undefined;
   Settings: undefined;
 };

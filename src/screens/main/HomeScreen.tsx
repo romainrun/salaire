@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Share, BackHandler } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Share, BackHandler, Clipboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../features/theme/ThemeProvider';
 import { useSalaryStore } from '../../store/salaryStore';
 import { useOnboardingStore } from '../../store/onboardingStore';
@@ -8,9 +9,14 @@ import { AppCard } from '../../components/AppCard';
 import { SegmentedControl } from '../../components/SegmentedControl';
 import { ResultGrid } from '../../components/ResultGrid';
 import { CustomKeyboard } from '../../components/CustomKeyboard';
+import { SalaryBreakdownModal } from '../../components/SalaryBreakdownModal';
+import { SalaryChart } from '../../components/SalaryChart';
+import { HistoryItemRow } from '../../components/HistoryItem';
 import { getCountryByCode, getSmicForCountry } from '../../data';
-import { formatCurrency, parseInputAmount } from '../../utils/format';
-import { generateShareText } from '../../features/share/share';
+import { formatCurrency } from '../../utils/format';
+import { parseSalaryInput } from '../../utils/parseSalaryInput';
+import { formatShareText } from '../../features/share/formatShareText';
+import { useHistory, type SortMode } from '../../features/history/useHistory';
 import type { SalaryResults } from '../../types';
 
 export function HomeScreen() {
@@ -21,7 +27,9 @@ export function HomeScreen() {
   const results = useSalaryStore((s) => s.results);
   const recentValues = useSalaryStore((s) => s.recentValues);
   const activeField = useSalaryStore((s) => s.activeField);
-  const history = useSalaryStore((s) => s.history);
+  const taxRate = useSalaryStore((s) => s.taxRate);
+  const pasEnabled = useSalaryStore((s) => s.pasEnabled);
+  const pasRate = useSalaryStore((s) => s.pasRate);
   const setInputValue = useSalaryStore((s) => s.setInputValue);
   const setInputType = useSalaryStore((s) => s.setInputType);
   const setPeriod = useSalaryStore((s) => s.setPeriod);
@@ -30,8 +38,6 @@ export function HomeScreen() {
   const fillSmic = useSalaryStore((s) => s.fillSmic);
   const addQuickAmount = useSalaryStore((s) => s.addQuickAmount);
   const saveSimulation = useSalaryStore((s) => s.saveSimulation);
-  const deleteHistoryItem = useSalaryStore((s) => s.deleteHistoryItem);
-  const loadSimulation = useSalaryStore((s) => s.loadSimulation);
   const recalculate = useSalaryStore((s) => s.recalculate);
   const country = useOnboardingStore((s) => s.country);
 
@@ -43,36 +49,32 @@ export function HomeScreen() {
   const inputYRef = useRef(0);
   const gridYRef = useRef(0);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [breakdownVisible, setBreakdownVisible] = useState(false);
   const [editingField, setEditingField] = useState<keyof SalaryResults | null>(null);
   const [editBuffer, setEditBuffer] = useState('');
+  const [historySortMode, setHistorySortMode] = useState<SortMode>('date');
+
+  const { items: historyItems, remove: removeHistory, load: loadHistory, toggleFavorite } = useHistory(historySortMode);
 
   const openKeyboard = useCallback(() => setKeyboardVisible(true), []);
   const closeKeyboard = useCallback(() => setKeyboardVisible(false), []);
 
   useEffect(() => {
     const handler = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (keyboardVisible) {
-        setKeyboardVisible(false);
-        return true;
-      }
+      if (breakdownVisible) { setBreakdownVisible(false); return true; }
+      if (keyboardVisible) { setKeyboardVisible(false); return true; }
       return false;
     });
     return () => handler.remove();
-  }, [keyboardVisible]);
+  }, [keyboardVisible, breakdownVisible]);
 
   const scrollToFocused = useCallback((y: number) => {
-    setTimeout(() => {
-      scrollRef.current?.scrollTo({ y: Math.max(0, y - 60), animated: true });
-    }, 100);
+    setTimeout(() => { scrollRef.current?.scrollTo({ y: Math.max(0, y - 60), animated: true }); }, 100);
   }, []);
 
-  const handleTypeChange = useCallback((index: number) => {
-    setInputType(index === 0 ? 'gross' : 'net');
-  }, [setInputType]);
-
-  const handlePeriodChange = useCallback((index: number) => {
-    const periods = ['monthly', 'yearly', 'daily'] as const;
-    setPeriod(periods[index]);
+  const handleTypeChange = useCallback((i: number) => setInputType(i === 0 ? 'gross' : 'net'), [setInputType]);
+  const handlePeriodChange = useCallback((i: number) => {
+    setPeriod((['monthly', 'yearly', 'daily'] as const)[i]);
   }, [setPeriod]);
 
   const handleKeyPress = useCallback((key: string) => {
@@ -80,7 +82,7 @@ export function HomeScreen() {
       setEditBuffer((prev) => {
         if (key === '.' && prev.includes('.')) return prev;
         const newBuf = prev + key;
-        updateFromField(editingField, parseInputAmount(newBuf));
+        updateFromField(editingField, parseSalaryInput(newBuf));
         return newBuf;
       });
     } else {
@@ -92,7 +94,7 @@ export function HomeScreen() {
     if (editingField) {
       setEditBuffer((prev) => {
         const newBuf = prev.slice(0, -1);
-        updateFromField(editingField, parseInputAmount(newBuf));
+        updateFromField(editingField, parseSalaryInput(newBuf));
         return newBuf;
       });
     } else {
@@ -128,13 +130,22 @@ export function HomeScreen() {
     if (smicValue) { fillSmic(smicValue); setEditingField(null); }
   }, [smicValue, fillSmic]);
 
+  const shareText = formatShareText({
+    inputType, inputValue, results, symbol,
+    countryName: countryData?.name, countryFlag: countryData?.flag,
+  });
+
   const handleShare = async () => {
-    const text = generateShareText(inputType, inputValue, results, symbol);
-    try { await Share.share({ message: text }); } catch (_) {}
+    try { await Share.share({ message: shareText }); } catch (_) {}
+  };
+
+  const handleCopy = () => {
+    Clipboard.setString(shareText);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   const handleAutoSave = useCallback(() => {
-    if (parseInputAmount(inputValue) > 0) saveSimulation('');
+    if (parseSalaryInput(inputValue) > 0) saveSimulation('');
   }, [inputValue, saveSimulation]);
 
   const periodIndex = period === 'monthly' ? 0 : period === 'yearly' ? 1 : 2;
@@ -143,20 +154,18 @@ export function HomeScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       <View style={styles.flex}>
         <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-          {/* Header: title + brut/net on one line */}
           <View style={styles.headerRow}>
             <View style={styles.headerLeft}>
               <Text style={[styles.appTitle, { color: theme.text }]}>Salaire</Text>
               <Text style={styles.flag}>{countryData?.flag}</Text>
             </View>
             <View style={styles.headerActions}>
-              <TouchableOpacity onPress={recalculate} style={styles.headerBtn}><Text style={styles.headerIcon}>🔄</Text></TouchableOpacity>
+              <TouchableOpacity onPress={handleCopy} style={styles.headerBtn}><Text style={styles.headerIcon}>📋</Text></TouchableOpacity>
               <TouchableOpacity onPress={handleShare} style={styles.headerBtn}><Text style={styles.headerIcon}>📤</Text></TouchableOpacity>
               <TouchableOpacity onPress={handleAutoSave} style={styles.headerBtn}><Text style={styles.headerIcon}>💾</Text></TouchableOpacity>
             </View>
           </View>
 
-          {/* Brut / Net header card — side by side */}
           <View style={styles.summaryRow}>
             <AppCard style={styles.summaryCard}>
               <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Brut mensuel</Text>
@@ -172,7 +181,15 @@ export function HomeScreen() {
             </AppCard>
           </View>
 
-          {/* Controls row */}
+          {results.grossMonthly > 0 && (
+            <AppCard>
+              <SalaryChart gross={results.grossMonthly} net={results.netMonthly} symbol={symbol} />
+              <TouchableOpacity onPress={() => setBreakdownVisible(true)} style={[styles.detailBtn, { borderColor: theme.border }]}>
+                <Text style={[styles.detailBtnText, { color: theme.primary }]}>Voir le détail</Text>
+              </TouchableOpacity>
+            </AppCard>
+          )}
+
           <View style={styles.controlsRow}>
             <View style={styles.controlHalf}>
               <SegmentedControl values={['Brut', 'Net']} selectedIndex={inputType === 'gross' ? 0 : 1} onChange={handleTypeChange} />
@@ -182,10 +199,7 @@ export function HomeScreen() {
             </View>
           </View>
 
-          {/* Input */}
-          <View
-            onLayout={(e) => { inputYRef.current = e.nativeEvent.layout.y; }}
-          >
+          <View onLayout={(e) => { inputYRef.current = e.nativeEvent.layout.y; }}>
             <TouchableOpacity onPress={handleInputAreaPress} activeOpacity={0.9}>
               <AppCard style={activeField === 'input' ? { borderColor: theme.primary, borderWidth: 1.5 } : undefined}>
                 <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>
@@ -198,34 +212,31 @@ export function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Results grid */}
           <View onLayout={(e) => { gridYRef.current = e.nativeEvent.layout.y; }}>
             <AppCard>
               <ResultGrid results={results} symbol={symbol} activeField={activeField} onFieldPress={handleFieldPress} />
             </AppCard>
           </View>
 
-          {/* History */}
-          {history.length > 0 && (
+          {historyItems.length > 0 && (
             <AppCard>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>Historique</Text>
-              {history.slice(0, 5).map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  onPress={() => loadSimulation(item)}
-                  onLongPress={() => deleteHistoryItem(item.id)}
-                  style={[styles.historyItem, { borderBottomColor: theme.border }]}
-                >
-                  <View>
-                    <Text style={[styles.historyTitle, { color: theme.text }]}>{item.title}</Text>
-                    <Text style={[styles.historyDate, { color: theme.textMuted }]}>
-                      {new Date(item.createdAt).toLocaleDateString('fr-FR')}
-                    </Text>
-                  </View>
-                  <Text style={[styles.historyValue, { color: theme.primary }]}>
-                    {formatCurrency(item.results.netMonthly, symbol)}
+              <View style={styles.historyHeader}>
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>Historique</Text>
+                <TouchableOpacity onPress={() => setHistorySortMode((m) => m === 'date' ? 'amount' : 'date')}>
+                  <Text style={[styles.sortBtn, { color: theme.textMuted }]}>
+                    {historySortMode === 'date' ? '📅' : '💰'}
                   </Text>
                 </TouchableOpacity>
+              </View>
+              {historyItems.slice(0, 8).map((item) => (
+                <HistoryItemRow
+                  key={item.id}
+                  item={item}
+                  symbol={symbol}
+                  onPress={() => loadHistory(item)}
+                  onDelete={() => removeHistory(item.id)}
+                  onToggleFavorite={() => toggleFavorite(item.id)}
+                />
               ))}
             </AppCard>
           )}
@@ -246,6 +257,16 @@ export function HomeScreen() {
           currencySymbol={symbol}
         />
       </View>
+
+      <SalaryBreakdownModal
+        visible={breakdownVisible}
+        onClose={() => setBreakdownVisible(false)}
+        grossMonthly={results.grossMonthly}
+        taxRate={taxRate}
+        pasEnabled={pasEnabled}
+        pasRate={pasRate}
+        symbol={symbol}
+      />
     </SafeAreaView>
   );
 }
@@ -265,14 +286,14 @@ const styles = StyleSheet.create({
   summaryCard: { flex: 1, marginBottom: 8 },
   summaryLabel: { fontSize: 11, fontWeight: '600', marginBottom: 2 },
   summaryValue: { fontSize: 20, fontWeight: '900' },
+  detailBtn: { marginTop: 8, paddingVertical: 8, borderTopWidth: 1, alignItems: 'center' },
+  detailBtnText: { fontSize: 13, fontWeight: '700' },
   controlsRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
   controlHalf: { flex: 1 },
   inputLabel: { fontSize: 11, fontWeight: '500', marginBottom: 2 },
   inputDisplay: { fontSize: 22, fontWeight: '800' },
-  sectionTitle: { fontSize: 14, fontWeight: '700', marginBottom: 8 },
-  historyItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1 },
-  historyTitle: { fontSize: 13, fontWeight: '600' },
-  historyDate: { fontSize: 10, marginTop: 1 },
-  historyValue: { fontSize: 14, fontWeight: '700' },
+  sectionTitle: { fontSize: 14, fontWeight: '700' },
+  historyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  sortBtn: { fontSize: 16, padding: 2 },
   bottomPad: { height: 20 },
 });
