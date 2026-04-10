@@ -43,52 +43,36 @@ export function HomeScreen() {
   const [editingField, setEditingField] = useState<keyof SalaryResults | null>(null);
   const [editBuffer, setEditBuffer] = useState('');
 
-  const openKeyboard = useCallback(() => {
-    setKeyboardVisible(true);
-  }, []);
+  const openKeyboard = useCallback(() => setKeyboardVisible(true), []);
+  const closeKeyboard = useCallback(() => setKeyboardVisible(false), []);
 
-  const closeKeyboard = useCallback(() => {
-    setKeyboardVisible(false);
-  }, []);
+  const handleTypeChange = useCallback((index: number) => {
+    setInputType(index === 0 ? 'gross' : 'net');
+  }, [setInputType]);
 
-  const handleTypeChange = useCallback(
-    (index: number) => {
-      setInputType(index === 0 ? 'gross' : 'net');
-    },
-    [setInputType]
-  );
+  const handlePeriodChange = useCallback((index: number) => {
+    const periods = ['monthly', 'yearly', 'daily'] as const;
+    setPeriod(periods[index]);
+  }, [setPeriod]);
 
-  const handlePeriodChange = useCallback(
-    (index: number) => {
-      const periods = ['monthly', 'yearly', 'daily'] as const;
-      setPeriod(periods[index]);
-    },
-    [setPeriod]
-  );
-
-  const handleKeyPress = useCallback(
-    (key: string) => {
-      if (editingField) {
-        setEditBuffer((prev) => {
-          if (key === '.' && prev.includes('.')) return prev;
-          const newBuf = prev + key;
-          const newVal = parseInputAmount(newBuf);
-          updateFromField(editingField, newVal);
-          return newBuf;
-        });
-      } else {
-        setInputValue(inputValue + key);
-      }
-    },
-    [inputValue, setInputValue, editingField, updateFromField]
-  );
+  const handleKeyPress = useCallback((key: string) => {
+    if (editingField) {
+      setEditBuffer((prev) => {
+        if (key === '.' && prev.includes('.')) return prev;
+        const newBuf = prev + key;
+        updateFromField(editingField, parseInputAmount(newBuf));
+        return newBuf;
+      });
+    } else {
+      setInputValue(inputValue + key);
+    }
+  }, [inputValue, setInputValue, editingField, updateFromField]);
 
   const handleDelete = useCallback(() => {
     if (editingField) {
       setEditBuffer((prev) => {
         const newBuf = prev.slice(0, -1);
-        const newVal = parseInputAmount(newBuf);
-        updateFromField(editingField, newVal);
+        updateFromField(editingField, parseInputAmount(newBuf));
         return newBuf;
       });
     } else {
@@ -96,15 +80,12 @@ export function HomeScreen() {
     }
   }, [inputValue, setInputValue, editingField, updateFromField]);
 
-  const handleFieldPress = useCallback(
-    (field: keyof SalaryResults) => {
-      setEditingField(field);
-      setEditBuffer(results[field].toString());
-      setActiveField(field);
-      openKeyboard();
-    },
-    [results, setActiveField, openKeyboard]
-  );
+  const handleFieldPress = useCallback((field: keyof SalaryResults) => {
+    setEditingField(field);
+    setEditBuffer(results[field].toString());
+    setActiveField(field);
+    openKeyboard();
+  }, [results, setActiveField, openKeyboard]);
 
   const handleInputAreaPress = useCallback(() => {
     setEditingField(null);
@@ -113,20 +94,14 @@ export function HomeScreen() {
     openKeyboard();
   }, [setActiveField, openKeyboard]);
 
-  const handleRecentSelect = useCallback(
-    (val: number) => {
-      setInputValue(val.toString());
-      setEditingField(null);
-      setActiveField('input');
-    },
-    [setInputValue, setActiveField]
-  );
+  const handleRecentSelect = useCallback((val: number) => {
+    setInputValue(val.toString());
+    setEditingField(null);
+    setActiveField('input');
+  }, [setInputValue, setActiveField]);
 
   const handleSmicPress = useCallback(() => {
-    if (smicValue) {
-      fillSmic(smicValue);
-      setEditingField(null);
-    }
+    if (smicValue) { fillSmic(smicValue); setEditingField(null); }
   }, [smicValue, fillSmic]);
 
   const handleShare = async () => {
@@ -135,10 +110,7 @@ export function HomeScreen() {
   };
 
   const handleAutoSave = useCallback(() => {
-    const val = parseInputAmount(inputValue);
-    if (val > 0) {
-      saveSimulation('');
-    }
+    if (parseInputAmount(inputValue) > 0) saveSimulation('');
   }, [inputValue, saveSimulation]);
 
   const periodIndex = period === 'monthly' ? 0 : period === 'yearly' ? 1 : 2;
@@ -147,49 +119,40 @@ export function HomeScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       <View style={styles.flex}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+          {/* Header compact */}
           <View style={styles.headerRow}>
-            <View>
+            <View style={styles.headerLeft}>
               <Text style={[styles.appTitle, { color: theme.text }]}>Salaire</Text>
-              <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-                {countryData?.flag} {countryData?.name}
-              </Text>
+              <Text style={[styles.flag]}>{countryData?.flag}</Text>
             </View>
             <View style={styles.headerActions}>
-              <TouchableOpacity onPress={recalculate} style={styles.headerBtn}>
-                <Text style={{ fontSize: 20 }}>🔄</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleShare} style={styles.headerBtn}>
-                <Text style={{ fontSize: 20 }}>📤</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleAutoSave} style={styles.headerBtn}>
-                <Text style={{ fontSize: 20 }}>💾</Text>
-              </TouchableOpacity>
+              <TouchableOpacity onPress={recalculate} style={styles.headerBtn}><Text style={styles.headerIcon}>🔄</Text></TouchableOpacity>
+              <TouchableOpacity onPress={handleShare} style={styles.headerBtn}><Text style={styles.headerIcon}>📤</Text></TouchableOpacity>
+              <TouchableOpacity onPress={handleAutoSave} style={styles.headerBtn}><Text style={styles.headerIcon}>💾</Text></TouchableOpacity>
             </View>
           </View>
 
+          {/* Net highlight */}
           <AppCard>
-            <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>Votre salaire réel</Text>
+            <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>Net mensuel</Text>
             <Text style={[styles.netHighlight, { color: theme.primary }]}>
               {formatCurrency(results.netMonthly, symbol)}
             </Text>
-            <Text style={[styles.cardSubLabel, { color: theme.textMuted }]}>net mensuel</Text>
           </AppCard>
 
-          <SegmentedControl
-            values={['Brut', 'Net']}
-            selectedIndex={inputType === 'gross' ? 0 : 1}
-            onChange={handleTypeChange}
-          />
-          <View style={styles.spacer} />
-          <SegmentedControl
-            values={['Mensuel', 'Annuel', 'Journalier']}
-            selectedIndex={periodIndex}
-            onChange={handlePeriodChange}
-          />
-          <View style={styles.spacer} />
+          {/* Controls row: type + period side by side */}
+          <View style={styles.controlsRow}>
+            <View style={styles.controlHalf}>
+              <SegmentedControl values={['Brut', 'Net']} selectedIndex={inputType === 'gross' ? 0 : 1} onChange={handleTypeChange} />
+            </View>
+            <View style={styles.controlHalf}>
+              <SegmentedControl values={['Mois', 'An', 'Jour']} selectedIndex={periodIndex} onChange={handlePeriodChange} />
+            </View>
+          </View>
 
+          {/* Input */}
           <TouchableOpacity onPress={handleInputAreaPress} activeOpacity={0.9}>
-            <AppCard style={activeField === 'input' ? { borderColor: theme.primary, borderWidth: 2 } : undefined}>
+            <AppCard style={activeField === 'input' ? { borderColor: theme.primary, borderWidth: 1.5 } : undefined}>
               <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>
                 {inputType === 'gross' ? 'Brut' : 'Net'} {period === 'monthly' ? 'mensuel' : period === 'yearly' ? 'annuel' : 'journalier'}
               </Text>
@@ -199,15 +162,12 @@ export function HomeScreen() {
             </AppCard>
           </TouchableOpacity>
 
+          {/* Results grid */}
           <AppCard>
-            <ResultGrid
-              results={results}
-              symbol={symbol}
-              activeField={activeField}
-              onFieldPress={handleFieldPress}
-            />
+            <ResultGrid results={results} symbol={symbol} activeField={activeField} onFieldPress={handleFieldPress} />
           </AppCard>
 
+          {/* History */}
           {history.length > 0 && (
             <AppCard>
               <Text style={[styles.sectionTitle, { color: theme.text }]}>Historique</Text>
@@ -232,7 +192,7 @@ export function HomeScreen() {
             </AppCard>
           )}
 
-          <View style={styles.bottomPadding} />
+          <View style={styles.bottomPad} />
         </ScrollView>
 
         <CustomKeyboard
@@ -255,25 +215,24 @@ export function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   flex: { flex: 1 },
-  scroll: { padding: 20, paddingBottom: 10 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  appTitle: { fontSize: 28, fontWeight: '800' },
-  subtitle: { fontSize: 14, marginTop: 2 },
-  headerActions: { flexDirection: 'row', gap: 12 },
-  headerBtn: { padding: 8 },
-  cardLabel: { fontSize: 14, fontWeight: '500', marginBottom: 4 },
-  netHighlight: { fontSize: 36, fontWeight: '900' },
-  cardSubLabel: { fontSize: 12, marginTop: 2 },
-  spacer: { height: 12 },
-  inputLabel: { fontSize: 13, fontWeight: '500', marginBottom: 6 },
-  inputDisplay: { fontSize: 28, fontWeight: '800' },
-  sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12 },
-  historyItem: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 12, borderBottomWidth: 1,
-  },
-  historyTitle: { fontSize: 14, fontWeight: '600' },
-  historyDate: { fontSize: 12, marginTop: 2 },
-  historyValue: { fontSize: 16, fontWeight: '700' },
-  bottomPadding: { height: 40 },
+  scroll: { paddingHorizontal: 14, paddingTop: 8, paddingBottom: 6 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  appTitle: { fontSize: 22, fontWeight: '800' },
+  flag: { fontSize: 18 },
+  headerActions: { flexDirection: 'row', gap: 8 },
+  headerBtn: { padding: 4 },
+  headerIcon: { fontSize: 17 },
+  cardLabel: { fontSize: 12, fontWeight: '500', marginBottom: 2 },
+  netHighlight: { fontSize: 28, fontWeight: '900' },
+  controlsRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  controlHalf: { flex: 1 },
+  inputLabel: { fontSize: 11, fontWeight: '500', marginBottom: 2 },
+  inputDisplay: { fontSize: 22, fontWeight: '800' },
+  sectionTitle: { fontSize: 14, fontWeight: '700', marginBottom: 8 },
+  historyItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1 },
+  historyTitle: { fontSize: 13, fontWeight: '600' },
+  historyDate: { fontSize: 10, marginTop: 1 },
+  historyValue: { fontSize: 14, fontWeight: '700' },
+  bottomPad: { height: 20 },
 });

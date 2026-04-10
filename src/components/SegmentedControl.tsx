@@ -8,11 +8,7 @@ interface SegmentedControlProps {
   onChange: (index: number) => void;
 }
 
-export function SegmentedControl({
-  values,
-  selectedIndex,
-  onChange,
-}: SegmentedControlProps) {
+export function SegmentedControl({ values, selectedIndex, onChange }: SegmentedControlProps) {
   const { theme } = useTheme();
 
   return (
@@ -22,19 +18,11 @@ export function SegmentedControl({
         return (
           <TouchableOpacity
             key={label}
-            style={[
-              styles.segment,
-              active && { backgroundColor: theme.primary },
-            ]}
+            style={[styles.segment, active && { backgroundColor: theme.primary }]}
             onPress={() => onChange(index)}
             activeOpacity={0.7}
           >
-            <Text
-              style={[
-                styles.label,
-                { color: active ? '#FFFFFF' : theme.textSecondary },
-              ]}
-            >
+            <Text style={[styles.label, { color: active ? '#FFFFFF' : theme.textSecondary }]}>
               {label}
             </Text>
           </TouchableOpacity>
@@ -45,20 +33,7 @@ export function SegmentedControl({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    borderRadius: 12,
-    padding: 3,
-    borderWidth: 1,
-  },
-  segment: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 10,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
+  container: { flexDirection: 'row', borderRadius: 10, padding: 2, borderWidth: 1 },
+  segment: { flex: 1, paddingVertical: 7, alignItems: 'center', borderRadius: 8 },
+  label: { fontSize: 13, fontWeight: '600' },
 });

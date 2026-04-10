@@ -19,9 +19,9 @@ export function AppCard({ children, style }: AppCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 14,
+    padding: 12,
     borderWidth: 1,
-    marginBottom: 16,
+    marginBottom: 8,
   },
 });

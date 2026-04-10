@@ -44,25 +44,21 @@ export const EditableValue = React.memo(function EditableValue({
       <Text
         style={[
           styles.value,
-          {
-            color: isPrimary ? theme.primary : theme.text,
-            fontSize: isPrimary ? 22 : 18,
-          },
+          { color: isPrimary ? theme.primary : theme.text, fontSize: isPrimary ? 16 : 14 },
         ]}
         numberOfLines={1}
+        adjustsFontSizeToFit
       >
         {formatCurrency(value, symbol)}
       </Text>
-      {isActive && (
-        <View style={[styles.activeDot, { backgroundColor: theme.primary }]} />
-      )}
+      {isActive && <View style={[styles.activeDot, { backgroundColor: theme.primary }]} />}
     </TouchableOpacity>
   );
 });
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 12, borderRadius: 14, borderWidth: 1.5, position: 'relative' },
-  label: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+  container: { flex: 1, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, position: 'relative' },
+  label: { fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 2 },
   value: { fontWeight: '800' },
-  activeDot: { position: 'absolute', top: 8, right: 8, width: 6, height: 6, borderRadius: 3 },
+  activeDot: { position: 'absolute', top: 6, right: 6, width: 5, height: 5, borderRadius: 3 },
 });

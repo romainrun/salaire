@@ -20,9 +20,7 @@ export const ResultGrid = React.memo(function ResultGrid({
   const { theme } = useTheme();
 
   const handlePress = useCallback(
-    (field: keyof SalaryResults) => {
-      onFieldPress?.(field);
-    },
+    (field: keyof SalaryResults) => { onFieldPress?.(field); },
     [onFieldPress]
   );
 
@@ -36,91 +34,30 @@ export const ResultGrid = React.memo(function ResultGrid({
 
       <Text style={[styles.periodLabel, { color: theme.textMuted }]}>Mensuel</Text>
       <View style={styles.valueRow}>
-        <EditableValue
-          label="Brut"
-          value={results.grossMonthly}
-          symbol={symbol}
-          isActive={activeField === 'grossMonthly'}
-          onPress={() => handlePress('grossMonthly')}
-        />
-        <EditableValue
-          label="Net"
-          value={results.netMonthly}
-          symbol={symbol}
-          isActive={activeField === 'netMonthly'}
-          isPrimary
-          onPress={() => handlePress('netMonthly')}
-        />
+        <EditableValue label="Brut" value={results.grossMonthly} symbol={symbol} isActive={activeField === 'grossMonthly'} onPress={() => handlePress('grossMonthly')} />
+        <EditableValue label="Net" value={results.netMonthly} symbol={symbol} isActive={activeField === 'netMonthly'} isPrimary onPress={() => handlePress('netMonthly')} />
       </View>
 
       <Text style={[styles.periodLabel, { color: theme.textMuted }]}>Annuel</Text>
       <View style={styles.valueRow}>
-        <EditableValue
-          label="Brut"
-          value={results.grossYearly}
-          symbol={symbol}
-          isActive={activeField === 'grossYearly'}
-          onPress={() => handlePress('grossYearly')}
-        />
-        <EditableValue
-          label="Net"
-          value={results.netYearly}
-          symbol={symbol}
-          isActive={activeField === 'netYearly'}
-          isPrimary
-          onPress={() => handlePress('netYearly')}
-        />
+        <EditableValue label="Brut" value={results.grossYearly} symbol={symbol} isActive={activeField === 'grossYearly'} onPress={() => handlePress('grossYearly')} />
+        <EditableValue label="Net" value={results.netYearly} symbol={symbol} isActive={activeField === 'netYearly'} isPrimary onPress={() => handlePress('netYearly')} />
       </View>
 
       <Text style={[styles.periodLabel, { color: theme.textMuted }]}>Journalier</Text>
       <View style={styles.valueRow}>
-        <EditableValue
-          label="Brut"
-          value={results.grossDaily}
-          symbol={symbol}
-          isActive={activeField === 'grossDaily'}
-          onPress={() => handlePress('grossDaily')}
-        />
-        <EditableValue
-          label="Net"
-          value={results.netDaily}
-          symbol={symbol}
-          isActive={activeField === 'netDaily'}
-          isPrimary
-          onPress={() => handlePress('netDaily')}
-        />
+        <EditableValue label="Brut" value={results.grossDaily} symbol={symbol} isActive={activeField === 'grossDaily'} onPress={() => handlePress('grossDaily')} />
+        <EditableValue label="Net" value={results.netDaily} symbol={symbol} isActive={activeField === 'netDaily'} isPrimary onPress={() => handlePress('netDaily')} />
       </View>
     </View>
   );
 });
 
 const styles = StyleSheet.create({
-  container: {
-    gap: 6,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    marginBottom: 4,
-  },
-  labelCol: {
-    flex: 1,
-  },
-  headerText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  periodLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginTop: 8,
-    marginBottom: 2,
-  },
-  valueRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
+  container: { gap: 3 },
+  headerRow: { flexDirection: 'row', marginBottom: 2 },
+  labelCol: { flex: 1 },
+  headerText: { flex: 1, fontSize: 11, fontWeight: '600', textAlign: 'center' },
+  periodLabel: { fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 4, marginBottom: 1 },
+  valueRow: { flexDirection: 'row', gap: 6 },
 });
