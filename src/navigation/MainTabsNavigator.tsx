@@ -8,6 +8,7 @@ import { TargetSalaryScreen } from '../screens/main/TargetSalaryScreen';
 import { SettingsScreen } from '../screens/main/SettingsScreen';
 import { CompareScreen } from '../features/comparison/CompareScreen';
 import { useTheme } from '../features/theme/ThemeProvider';
+import { APP_NAME, LABELS } from '../constants/appName';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -39,10 +40,10 @@ export function MainTabsNavigator() {
         tabBarIcon: ({ focused, color }) => <TabIcon name={route.name} focused={focused} color={color} />,
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: 'Salaire' }} />
-      <Tab.Screen name="Compare" component={CompareScreen} options={{ tabBarLabel: 'Comparer' }} />
-      <Tab.Screen name="Target" component={TargetSalaryScreen} options={{ tabBarLabel: 'Objectif' }} />
-      <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: 'Réglages' }} />
+      <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: APP_NAME }} />
+      <Tab.Screen name="Compare" component={CompareScreen} options={{ tabBarLabel: LABELS.compare }} />
+      <Tab.Screen name="Target" component={TargetSalaryScreen} options={{ tabBarLabel: LABELS.target }} />
+      <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: LABELS.settings }} />
     </Tab.Navigator>
   );
 }

@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Share, BackHandler, Clipboard } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Share, BackHandler } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import * as ExpoClipboard from 'expo-constants';
 import { useTheme } from '../../features/theme/ThemeProvider';
 import { useSalaryStore } from '../../store/salaryStore';
 import { useOnboardingStore } from '../../store/onboardingStore';
@@ -12,11 +13,15 @@ import { CustomKeyboard } from '../../components/CustomKeyboard';
 import { SalaryBreakdownModal } from '../../components/SalaryBreakdownModal';
 import { SalaryChart } from '../../components/SalaryChart';
 import { HistoryItemRow } from '../../components/HistoryItem';
+import { EditableFieldWrapper } from '../../components/EditableFieldWrapper';
+import { QuickModeScreen } from './QuickModeScreen';
 import { getCountryByCode, getSmicForCountry } from '../../data';
 import { formatCurrency } from '../../utils/format';
 import { parseSalaryInput } from '../../utils/parseSalaryInput';
 import { formatShareText } from '../../features/share/formatShareText';
+import { getSmartSuggestion } from '../../features/salary/getSmartSuggestion';
 import { useHistory, type SortMode } from '../../features/history/useHistory';
+import { APP_NAME, LABELS } from '../../constants/appName';
 import type { SalaryResults } from '../../types';
 
 export function HomeScreen() {
@@ -50,32 +55,37 @@ export function HomeScreen() {
   const gridYRef = useRef(0);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [breakdownVisible, setBreakdownVisible] = useState(false);
+  const [quickMode, setQuickMode] = useState(false);
   const [editingField, setEditingField] = useState<keyof SalaryResults | null>(null);
   const [editBuffer, setEditBuffer] = useState('');
   const [historySortMode, setHistorySortMode] = useState<SortMode>('date');
 
   const { items: historyItems, remove: removeHistory, load: loadHistory, toggleFavorite } = useHistory(historySortMode);
 
+  const suggestion = useMemo(
+    () => getSmartSuggestion(results.netMonthly, results.grossMonthly, country),
+    [results.netMonthly, results.grossMonthly, country]
+  );
+
   const openKeyboard = useCallback(() => setKeyboardVisible(true), []);
   const closeKeyboard = useCallback(() => setKeyboardVisible(false), []);
 
   useEffect(() => {
     const handler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (quickMode) { setQuickMode(false); return true; }
       if (breakdownVisible) { setBreakdownVisible(false); return true; }
       if (keyboardVisible) { setKeyboardVisible(false); return true; }
       return false;
     });
     return () => handler.remove();
-  }, [keyboardVisible, breakdownVisible]);
+  }, [keyboardVisible, breakdownVisible, quickMode]);
 
   const scrollToFocused = useCallback((y: number) => {
     setTimeout(() => { scrollRef.current?.scrollTo({ y: Math.max(0, y - 60), animated: true }); }, 100);
   }, []);
 
   const handleTypeChange = useCallback((i: number) => setInputType(i === 0 ? 'gross' : 'net'), [setInputType]);
-  const handlePeriodChange = useCallback((i: number) => {
-    setPeriod((['monthly', 'yearly', 'daily'] as const)[i]);
-  }, [setPeriod]);
+  const handlePeriodChange = useCallback((i: number) => setPeriod((['monthly', 'yearly', 'daily'] as const)[i]), [setPeriod]);
 
   const handleKeyPress = useCallback((key: string) => {
     if (editingField) {
@@ -139,16 +149,18 @@ export function HomeScreen() {
     try { await Share.share({ message: shareText }); } catch (_) {}
   };
 
-  const handleCopy = () => {
-    Clipboard.setString(shareText);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  };
-
   const handleAutoSave = useCallback(() => {
-    if (parseSalaryInput(inputValue) > 0) saveSimulation('');
+    if (parseSalaryInput(inputValue) > 0) {
+      saveSimulation('');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
   }, [inputValue, saveSimulation]);
 
   const periodIndex = period === 'monthly' ? 0 : period === 'yearly' ? 1 : 2;
+
+  if (quickMode) {
+    return <QuickModeScreen onClose={() => setQuickMode(false)} />;
+  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
@@ -156,11 +168,13 @@ export function HomeScreen() {
         <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
           <View style={styles.headerRow}>
             <View style={styles.headerLeft}>
-              <Text style={[styles.appTitle, { color: theme.text }]}>Salaire</Text>
+              <Text style={[styles.appTitle, { color: theme.text }]}>{APP_NAME}</Text>
               <Text style={styles.flag}>{countryData?.flag}</Text>
             </View>
             <View style={styles.headerActions}>
-              <TouchableOpacity onPress={handleCopy} style={styles.headerBtn}><Text style={styles.headerIcon}>📋</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setQuickMode(true); }} style={[styles.quickBtn, { borderColor: theme.primary }]}>
+                <Text style={[styles.quickBtnText, { color: theme.primary }]}>⚡</Text>
+              </TouchableOpacity>
               <TouchableOpacity onPress={handleShare} style={styles.headerBtn}><Text style={styles.headerIcon}>📤</Text></TouchableOpacity>
               <TouchableOpacity onPress={handleAutoSave} style={styles.headerBtn}><Text style={styles.headerIcon}>💾</Text></TouchableOpacity>
             </View>
@@ -168,13 +182,13 @@ export function HomeScreen() {
 
           <View style={styles.summaryRow}>
             <AppCard style={styles.summaryCard}>
-              <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Brut mensuel</Text>
+              <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>{LABELS.grossMonthly}</Text>
               <Text style={[styles.summaryValue, { color: theme.text }]} numberOfLines={1} adjustsFontSizeToFit>
                 {formatCurrency(results.grossMonthly, symbol)}
               </Text>
             </AppCard>
             <AppCard style={styles.summaryCard}>
-              <Text style={[styles.summaryLabel, { color: theme.primary }]}>Net mensuel</Text>
+              <Text style={[styles.summaryLabel, { color: theme.primary }]}>{LABELS.netMonthly}</Text>
               <Text style={[styles.summaryValue, { color: theme.primary }]} numberOfLines={1} adjustsFontSizeToFit>
                 {formatCurrency(results.netMonthly, symbol)}
               </Text>
@@ -185,32 +199,47 @@ export function HomeScreen() {
             <AppCard>
               <SalaryChart gross={results.grossMonthly} net={results.netMonthly} symbol={symbol} />
               <TouchableOpacity onPress={() => setBreakdownVisible(true)} style={[styles.detailBtn, { borderColor: theme.border }]}>
-                <Text style={[styles.detailBtnText, { color: theme.primary }]}>Voir le détail</Text>
+                <Text style={[styles.detailBtnText, { color: theme.primary }]}>{LABELS.details}</Text>
               </TouchableOpacity>
             </AppCard>
           )}
 
+          {suggestion && results.grossMonthly > 0 && (
+            <TouchableOpacity activeOpacity={0.8}>
+              <AppCard style={{ borderColor: theme.primary + '40' }}>
+                <Text style={[styles.suggestionText, { color: theme.text }]}>
+                  {suggestion.flag} En <Text style={{ fontWeight: '800' }}>{suggestion.countryName}</Text> vous gagneriez{' '}
+                  <Text style={{ color: theme.success, fontWeight: '800' }}>+{formatCurrency(suggestion.difference, symbol)}</Text>/mois
+                </Text>
+              </AppCard>
+            </TouchableOpacity>
+          )}
+
           <View style={styles.controlsRow}>
             <View style={styles.controlHalf}>
-              <SegmentedControl values={['Brut', 'Net']} selectedIndex={inputType === 'gross' ? 0 : 1} onChange={handleTypeChange} />
+              <SegmentedControl values={[LABELS.gross, LABELS.net]} selectedIndex={inputType === 'gross' ? 0 : 1} onChange={handleTypeChange} />
             </View>
             <View style={styles.controlHalf}>
-              <SegmentedControl values={['Mois', 'An', 'Jour']} selectedIndex={periodIndex} onChange={handlePeriodChange} />
+              <SegmentedControl values={[LABELS.monthly, LABELS.yearly, LABELS.daily]} selectedIndex={periodIndex} onChange={handlePeriodChange} />
             </View>
           </View>
 
           <View onLayout={(e) => { inputYRef.current = e.nativeEvent.layout.y; }}>
             <TouchableOpacity onPress={handleInputAreaPress} activeOpacity={0.9}>
-              <AppCard style={activeField === 'input' ? { borderColor: theme.primary, borderWidth: 1.5 } : undefined}>
-                <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>
-                  {inputType === 'gross' ? 'Brut' : 'Net'} {period === 'monthly' ? 'mensuel' : period === 'yearly' ? 'annuel' : 'journalier'}
-                </Text>
-                <Text style={[styles.inputDisplay, { color: theme.text }]}>
-                  {inputValue || '0'} {symbol}
-                </Text>
-              </AppCard>
+              <EditableFieldWrapper isActive={activeField === 'input'}>
+                <View style={styles.inputInner}>
+                  <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>
+                    {inputType === 'gross' ? LABELS.gross : LABELS.net} {period === 'monthly' ? LABELS.monthlyFull : period === 'yearly' ? LABELS.yearlyFull : LABELS.dailyFull}
+                  </Text>
+                  <Text style={[styles.inputDisplay, { color: theme.text }]}>
+                    {inputValue || '0'} {symbol}
+                  </Text>
+                </View>
+              </EditableFieldWrapper>
             </TouchableOpacity>
           </View>
+
+          <View style={{ height: 8 }} />
 
           <View onLayout={(e) => { gridYRef.current = e.nativeEvent.layout.y; }}>
             <AppCard>
@@ -221,7 +250,7 @@ export function HomeScreen() {
           {historyItems.length > 0 && (
             <AppCard>
               <View style={styles.historyHeader}>
-                <Text style={[styles.sectionTitle, { color: theme.text }]}>Historique</Text>
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>{LABELS.history}</Text>
                 <TouchableOpacity onPress={() => setHistorySortMode((m) => m === 'date' ? 'amount' : 'date')}>
                   <Text style={[styles.sortBtn, { color: theme.textMuted }]}>
                     {historySortMode === 'date' ? '📅' : '💰'}
@@ -279,7 +308,9 @@ const styles = StyleSheet.create({
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   appTitle: { fontSize: 22, fontWeight: '800' },
   flag: { fontSize: 18 },
-  headerActions: { flexDirection: 'row', gap: 8 },
+  headerActions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  quickBtn: { borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  quickBtnText: { fontSize: 16 },
   headerBtn: { padding: 4 },
   headerIcon: { fontSize: 17 },
   summaryRow: { flexDirection: 'row', gap: 8, marginBottom: 0 },
@@ -288,8 +319,10 @@ const styles = StyleSheet.create({
   summaryValue: { fontSize: 20, fontWeight: '900' },
   detailBtn: { marginTop: 8, paddingVertical: 8, borderTopWidth: 1, alignItems: 'center' },
   detailBtnText: { fontSize: 13, fontWeight: '700' },
+  suggestionText: { fontSize: 13, lineHeight: 18 },
   controlsRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
   controlHalf: { flex: 1 },
+  inputInner: { padding: 12 },
   inputLabel: { fontSize: 11, fontWeight: '500', marginBottom: 2 },
   inputDisplay: { fontSize: 22, fontWeight: '800' },
   sectionTitle: { fontSize: 14, fontWeight: '700' },

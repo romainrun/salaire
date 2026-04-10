@@ -1,5 +1,6 @@
 import type { SalaryResults, SalaryInputType } from '../../types';
 import { formatCurrency } from '../../utils/format';
+import { APP_NAME, LABELS } from '../../constants/appName';
 
 export function formatShareText(options: {
   inputType: SalaryInputType;
@@ -11,7 +12,7 @@ export function formatShareText(options: {
 }): string {
   const { results, symbol, countryName, countryFlag } = options;
   const lines: string[] = [
-    '💰 Simulation Salaire',
+    `💰 ${LABELS.result} — ${APP_NAME}`,
   ];
 
   if (countryFlag && countryName) {
@@ -19,14 +20,13 @@ export function formatShareText(options: {
   }
 
   lines.push('');
-  lines.push(`📊 Brut mensuel : ${formatCurrency(results.grossMonthly, symbol)}`);
-  lines.push(`💵 Net mensuel : ${formatCurrency(results.netMonthly, symbol)}`);
+  lines.push(`📊 ${LABELS.grossMonthly} : ${formatCurrency(results.grossMonthly, symbol)}`);
+  lines.push(`💵 ${LABELS.netMonthly} : ${formatCurrency(results.netMonthly, symbol)}`);
   lines.push('');
-  lines.push('📅 Détails');
-  lines.push(`  Annuel : ${formatCurrency(results.grossYearly, symbol)} brut → ${formatCurrency(results.netYearly, symbol)} net`);
-  lines.push(`  Journalier : ${formatCurrency(results.grossDaily, symbol)} brut → ${formatCurrency(results.netDaily, symbol)} net`);
+  lines.push(`📅 ${LABELS.yearlyFull} : ${formatCurrency(results.grossYearly, symbol)} brut → ${formatCurrency(results.netYearly, symbol)} net`);
+  lines.push(`📅 ${LABELS.dailyFull} : ${formatCurrency(results.grossDaily, symbol)} brut → ${formatCurrency(results.netDaily, symbol)} net`);
   lines.push('');
-  lines.push('🚀 Calculé avec l\'app Salaire');
+  lines.push(`🚀 ${LABELS.generatedWith}`);
 
   return lines.join('\n');
 }

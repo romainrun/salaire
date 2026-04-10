@@ -12,6 +12,7 @@ import { AppSwitchRow } from '../../components/AppSwitchRow';
 import { SegmentedControl } from '../../components/SegmentedControl';
 import { GradientButton } from '../../components/GradientButton';
 import { countries } from '../../data';
+import { APP_NAME, LABELS } from '../../constants/appName';
 import type { ThemeMode, Country } from '../../types';
 
 function SettingsSection({ title, children }: { title: string; children: React.ReactNode }) {
@@ -99,7 +100,7 @@ export function SettingsScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        <Text style={[styles.title, { color: theme.text }]}>Réglages</Text>
+        <Text style={[styles.title, { color: theme.text }]}>{LABELS.settings}</Text>
 
         <SettingsSection title="Notifications">
           <AppSwitchRow
