@@ -10,7 +10,19 @@ export interface SmartSuggestion {
 }
 
 const THRESHOLD = 100;
-const COMPARISON_COUNTRIES = ['CH', 'LU', 'DE', 'GB', 'US', 'NL', 'BE', 'IE'];
+
+const EU_COUNTRIES = new Set(['FR', 'BE', 'LU', 'DE', 'ES', 'IT', 'PT', 'NL', 'AT', 'IE']);
+const NON_EU_RICH = new Set(['CH', 'GB', 'US', 'CA']);
+
+function getRelevantCountries(currentCode: string): string[] {
+  if (EU_COUNTRIES.has(currentCode)) {
+    return [...EU_COUNTRIES, 'CH', 'GB'].filter((c) => c !== currentCode);
+  }
+  if (currentCode === 'CH' || currentCode === 'GB') {
+    return [...EU_COUNTRIES, ...NON_EU_RICH].filter((c) => c !== currentCode);
+  }
+  return [...EU_COUNTRIES, ...NON_EU_RICH].filter((c) => c !== currentCode);
+}
 
 export function getSmartSuggestion(
   currentNetMonthly: number,
@@ -19,10 +31,10 @@ export function getSmartSuggestion(
 ): SmartSuggestion | null {
   if (currentGrossMonthly <= 0) return null;
 
+  const relevantCodes = getRelevantCountries(currentCountryCode);
   let best: SmartSuggestion | null = null;
 
-  for (const code of COMPARISON_COUNTRIES) {
-    if (code === currentCountryCode) continue;
+  for (const code of relevantCodes) {
     const c = countries.find((x) => x.code === code);
     if (!c) continue;
 

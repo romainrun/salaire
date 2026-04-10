@@ -1,5 +1,5 @@
 export const APP_NAME = 'PayFlow';
-export const APP_TAGLINE = 'Salary Calculator';
+export const APP_TAGLINE = 'Comprenez votre salaire instantanément';
 
 export const LABELS = {
   grossMonthly: 'Brut mensuel',
@@ -23,7 +23,6 @@ export const LABELS = {
   target: 'Objectif',
   settings: 'Réglages',
   result: 'Résultat',
-  simulation: 'Résultat',
   reset: 'Réinitialiser',
   delete: 'Supprimer',
   cancel: 'Annuler',
@@ -32,4 +31,10 @@ export const LABELS = {
   continue: 'Continuer',
   shareResults: 'Partager les résultats',
   generatedWith: `Calculé avec ${APP_NAME}`,
+  emptyHistory: 'Aucune simulation',
+  emptyHistoryMsg: 'Saisissez un montant et sauvegardez votre première simulation.',
+  emptyCompare: 'Comparer les salaires',
+  emptyCompareMsg: 'Saisissez un montant brut pour comparer entre deux pays.',
+  emptyTarget: 'Définir un objectif',
+  emptyTargetMsg: 'Entrez le salaire net souhaité pour voir les calculs.',
 } as const;

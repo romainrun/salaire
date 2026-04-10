@@ -4,12 +4,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../features/theme/ThemeProvider';
 import { useOnboardingStore } from '../../store/onboardingStore';
+import { useSalaryStore } from '../../store/salaryStore';
 import { getCountryByCode } from '../../data';
-import { formatCurrency } from '../../utils/format';
 import { recalculateFromInput } from '../../utils/salary';
 import { parseSalaryInput } from '../../utils/parseSalaryInput';
 import { CustomKeyboard } from '../../components/CustomKeyboard';
 import { EditableFieldWrapper } from '../../components/EditableFieldWrapper';
+import { AnimatedNumber } from '../../components/AnimatedNumber';
+import { PressableScale } from '../../components/PressableScale';
 import { APP_NAME } from '../../constants/appName';
 import type { SalaryInputType } from '../../types';
 
@@ -22,12 +24,13 @@ export function QuickModeScreen({ onClose }: QuickModeProps) {
   const country = useOnboardingStore((s) => s.country);
   const pasEnabled = useOnboardingStore((s) => s.pasEnabled);
   const pasRate = useOnboardingStore((s) => s.pasRate);
+  const lastInputType = useSalaryStore((s) => s.inputType);
   const countryData = getCountryByCode(country);
   const symbol = countryData?.currencySymbol ?? '€';
   const taxRate = countryData?.taxRate ?? 0.23;
 
   const [value, setValue] = useState('');
-  const [inputType, setInputType] = useState<SalaryInputType>('gross');
+  const [inputType, setInputType] = useState<SalaryInputType>(lastInputType);
 
   const numValue = parseSalaryInput(value);
   const results = recalculateFromInput(numValue, inputType, 'monthly', { taxRate, pasEnabled, pasRate });
@@ -35,10 +38,7 @@ export function QuickModeScreen({ onClose }: QuickModeProps) {
   const resultLabel = inputType === 'gross' ? 'Net mensuel' : 'Brut mensuel';
 
   useEffect(() => {
-    const handler = BackHandler.addEventListener('hardwareBackPress', () => {
-      onClose();
-      return true;
-    });
+    const handler = BackHandler.addEventListener('hardwareBackPress', () => { onClose(); return true; });
     return () => handler.remove();
   }, [onClose]);
 
@@ -81,18 +81,20 @@ export function QuickModeScreen({ onClose }: QuickModeProps) {
         <Text style={[styles.arrow, { color: theme.textMuted }]}>↓</Text>
 
         <Text style={[styles.resultLabel, { color: theme.textSecondary }]}>{resultLabel}</Text>
-        <Text style={[styles.resultValue, { color: theme.primary }]}>
-          {formatCurrency(resultValue, symbol)}
-        </Text>
+        <AnimatedNumber
+          value={resultValue}
+          symbol={symbol}
+          style={[styles.resultValue, { color: theme.primary }]}
+          duration={250}
+        />
 
-        <View style={styles.toggleRow}>
-          <Text
-            onPress={toggleType}
-            style={[styles.toggleBtn, { color: theme.primary, borderColor: theme.primary }]}
-          >
-            {inputType === 'gross' ? 'Saisir en Net →' : '← Saisir en Brut'}
-          </Text>
-        </View>
+        <PressableScale onPress={toggleType}>
+          <View style={[styles.toggleBtn, { borderColor: theme.primary }]}>
+            <Text style={[styles.toggleBtnText, { color: theme.primary }]}>
+              {inputType === 'gross' ? 'Saisir en Net →' : '← Saisir en Brut'}
+            </Text>
+          </View>
+        </PressableScale>
       </View>
 
       <CustomKeyboard
@@ -120,6 +122,6 @@ const styles = StyleSheet.create({
   arrow: { fontSize: 24, marginVertical: 12 },
   resultLabel: { fontSize: 13, fontWeight: '600', marginBottom: 4 },
   resultValue: { fontSize: 42, fontWeight: '900' },
-  toggleRow: { marginTop: 20 },
-  toggleBtn: { fontSize: 14, fontWeight: '700', borderWidth: 1, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8 },
+  toggleBtn: { marginTop: 20, borderWidth: 1, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8 },
+  toggleBtnText: { fontSize: 14, fontWeight: '700' },
 });

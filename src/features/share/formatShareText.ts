@@ -1,6 +1,6 @@
 import type { SalaryResults, SalaryInputType } from '../../types';
-import { formatCurrency } from '../../utils/format';
-import { APP_NAME, LABELS } from '../../constants/appName';
+import { formatAmount } from '../../utils/formatCurrency';
+import { APP_NAME } from '../../constants/appName';
 
 export function formatShareText(options: {
   inputType: SalaryInputType;
@@ -11,8 +11,11 @@ export function formatShareText(options: {
   countryFlag?: string;
 }): string {
   const { results, symbol, countryName, countryFlag } = options;
+
   const lines: string[] = [
-    `💰 ${LABELS.result} — ${APP_NAME}`,
+    `💰 Je gagne ${formatAmount(results.netMonthly, symbol)} net/mois`,
+    '',
+    `📊 Brut : ${formatAmount(results.grossMonthly, symbol)}`,
   ];
 
   if (countryFlag && countryName) {
@@ -20,13 +23,9 @@ export function formatShareText(options: {
   }
 
   lines.push('');
-  lines.push(`📊 ${LABELS.grossMonthly} : ${formatCurrency(results.grossMonthly, symbol)}`);
-  lines.push(`💵 ${LABELS.netMonthly} : ${formatCurrency(results.netMonthly, symbol)}`);
+  lines.push(`📅 ${formatAmount(results.netYearly, symbol)} net/an`);
   lines.push('');
-  lines.push(`📅 ${LABELS.yearlyFull} : ${formatCurrency(results.grossYearly, symbol)} brut → ${formatCurrency(results.netYearly, symbol)} net`);
-  lines.push(`📅 ${LABELS.dailyFull} : ${formatCurrency(results.grossDaily, symbol)} brut → ${formatCurrency(results.netDaily, symbol)} net`);
-  lines.push('');
-  lines.push(`🚀 ${LABELS.generatedWith}`);
+  lines.push(`⚡ ${APP_NAME}`);
 
   return lines.join('\n');
 }

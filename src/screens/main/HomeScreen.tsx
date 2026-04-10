@@ -1,8 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Share, BackHandler } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Share, BackHandler, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import * as ExpoClipboard from 'expo-constants';
 import { useTheme } from '../../features/theme/ThemeProvider';
 import { useSalaryStore } from '../../store/salaryStore';
 import { useOnboardingStore } from '../../store/onboardingStore';
@@ -14,6 +13,9 @@ import { SalaryBreakdownModal } from '../../components/SalaryBreakdownModal';
 import { SalaryChart } from '../../components/SalaryChart';
 import { HistoryItemRow } from '../../components/HistoryItem';
 import { EditableFieldWrapper } from '../../components/EditableFieldWrapper';
+import { AnimatedNumber } from '../../components/AnimatedNumber';
+import { PressableScale } from '../../components/PressableScale';
+import { EmptyState } from '../../components/EmptyState';
 import { QuickModeScreen } from './QuickModeScreen';
 import { getCountryByCode, getSmicForCountry } from '../../data';
 import { formatCurrency } from '../../utils/format';
@@ -43,7 +45,6 @@ export function HomeScreen() {
   const fillSmic = useSalaryStore((s) => s.fillSmic);
   const addQuickAmount = useSalaryStore((s) => s.addQuickAmount);
   const saveSimulation = useSalaryStore((s) => s.saveSimulation);
-  const recalculate = useSalaryStore((s) => s.recalculate);
   const country = useOnboardingStore((s) => s.country);
 
   const countryData = getCountryByCode(country);
@@ -53,6 +54,7 @@ export function HomeScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const inputYRef = useRef(0);
   const gridYRef = useRef(0);
+  const suggestionFade = useRef(new Animated.Value(0)).current;
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [breakdownVisible, setBreakdownVisible] = useState(false);
   const [quickMode, setQuickMode] = useState(false);
@@ -66,6 +68,14 @@ export function HomeScreen() {
     () => getSmartSuggestion(results.netMonthly, results.grossMonthly, country),
     [results.netMonthly, results.grossMonthly, country]
   );
+
+  useEffect(() => {
+    Animated.timing(suggestionFade, {
+      toValue: suggestion ? 1 : 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [suggestion, suggestionFade]);
 
   const openKeyboard = useCallback(() => setKeyboardVisible(true), []);
   const closeKeyboard = useCallback(() => setKeyboardVisible(false), []);
@@ -113,6 +123,7 @@ export function HomeScreen() {
   }, [inputValue, setInputValue, editingField, updateFromField]);
 
   const handleFieldPress = useCallback((field: keyof SalaryResults) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setEditingField(field);
     setEditBuffer('');
     updateFromField(field, 0);
@@ -122,6 +133,7 @@ export function HomeScreen() {
   }, [setActiveField, openKeyboard, updateFromField, scrollToFocused]);
 
   const handleInputAreaPress = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setEditingField(null);
     setEditBuffer('');
     setInputValue('');
@@ -146,6 +158,7 @@ export function HomeScreen() {
   });
 
   const handleShare = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try { await Share.share({ message: shareText }); } catch (_) {}
   };
 
@@ -172,47 +185,52 @@ export function HomeScreen() {
               <Text style={styles.flag}>{countryData?.flag}</Text>
             </View>
             <View style={styles.headerActions}>
-              <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setQuickMode(true); }} style={[styles.quickBtn, { borderColor: theme.primary }]}>
-                <Text style={[styles.quickBtnText, { color: theme.primary }]}>⚡</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleShare} style={styles.headerBtn}><Text style={styles.headerIcon}>📤</Text></TouchableOpacity>
-              <TouchableOpacity onPress={handleAutoSave} style={styles.headerBtn}><Text style={styles.headerIcon}>💾</Text></TouchableOpacity>
+              <PressableScale onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setQuickMode(true); }}>
+                <View style={[styles.quickBtn, { borderColor: theme.primary }]}>
+                  <Text style={[styles.quickBtnText, { color: theme.primary }]}>⚡</Text>
+                </View>
+              </PressableScale>
+              <PressableScale onPress={handleShare}>
+                <Text style={styles.headerIcon}>📤</Text>
+              </PressableScale>
+              <PressableScale onPress={handleAutoSave}>
+                <Text style={styles.headerIcon}>💾</Text>
+              </PressableScale>
             </View>
           </View>
 
           <View style={styles.summaryRow}>
             <AppCard style={styles.summaryCard}>
               <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>{LABELS.grossMonthly}</Text>
-              <Text style={[styles.summaryValue, { color: theme.text }]} numberOfLines={1} adjustsFontSizeToFit>
-                {formatCurrency(results.grossMonthly, symbol)}
-              </Text>
+              <AnimatedNumber value={results.grossMonthly} symbol={symbol} style={[styles.summaryValue, { color: theme.text }]} />
             </AppCard>
             <AppCard style={styles.summaryCard}>
               <Text style={[styles.summaryLabel, { color: theme.primary }]}>{LABELS.netMonthly}</Text>
-              <Text style={[styles.summaryValue, { color: theme.primary }]} numberOfLines={1} adjustsFontSizeToFit>
-                {formatCurrency(results.netMonthly, symbol)}
-              </Text>
+              <AnimatedNumber value={results.netMonthly} symbol={symbol} style={[styles.summaryValue, { color: theme.primary }]} />
             </AppCard>
           </View>
 
           {results.grossMonthly > 0 && (
             <AppCard>
               <SalaryChart gross={results.grossMonthly} net={results.netMonthly} symbol={symbol} />
-              <TouchableOpacity onPress={() => setBreakdownVisible(true)} style={[styles.detailBtn, { borderColor: theme.border }]}>
-                <Text style={[styles.detailBtnText, { color: theme.primary }]}>{LABELS.details}</Text>
-              </TouchableOpacity>
+              <PressableScale onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setBreakdownVisible(true); }}>
+                <View style={[styles.detailBtn, { borderColor: theme.border }]}>
+                  <Text style={[styles.detailBtnText, { color: theme.primary }]}>{LABELS.details}</Text>
+                </View>
+              </PressableScale>
             </AppCard>
           )}
 
           {suggestion && results.grossMonthly > 0 && (
-            <TouchableOpacity activeOpacity={0.8}>
+            <Animated.View style={{ opacity: suggestionFade }}>
               <AppCard style={{ borderColor: theme.primary + '40' }}>
-                <Text style={[styles.suggestionText, { color: theme.text }]}>
-                  {suggestion.flag} En <Text style={{ fontWeight: '800' }}>{suggestion.countryName}</Text> vous gagneriez{' '}
-                  <Text style={{ color: theme.success, fontWeight: '800' }}>+{formatCurrency(suggestion.difference, symbol)}</Text>/mois
+                <Text style={[styles.suggestionFlag]}>{suggestion.flag}</Text>
+                <Text style={[styles.suggestionCountry, { color: theme.text }]}>{suggestion.countryName}</Text>
+                <Text style={[styles.suggestionDiff, { color: theme.success }]}>
+                  +{formatCurrency(suggestion.difference, symbol)}/mois net
                 </Text>
               </AppCard>
-            </TouchableOpacity>
+            </Animated.View>
           )}
 
           <View style={styles.controlsRow}>
@@ -247,17 +265,21 @@ export function HomeScreen() {
             </AppCard>
           </View>
 
-          {historyItems.length > 0 && (
-            <AppCard>
-              <View style={styles.historyHeader}>
-                <Text style={[styles.sectionTitle, { color: theme.text }]}>{LABELS.history}</Text>
-                <TouchableOpacity onPress={() => setHistorySortMode((m) => m === 'date' ? 'amount' : 'date')}>
+          <AppCard>
+            <View style={styles.historyHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>{LABELS.history}</Text>
+              {historyItems.length > 0 && (
+                <PressableScale onPress={() => setHistorySortMode((m) => m === 'date' ? 'amount' : 'date')}>
                   <Text style={[styles.sortBtn, { color: theme.textMuted }]}>
                     {historySortMode === 'date' ? '📅' : '💰'}
                   </Text>
-                </TouchableOpacity>
-              </View>
-              {historyItems.slice(0, 8).map((item) => (
+                </PressableScale>
+              )}
+            </View>
+            {historyItems.length === 0 ? (
+              <EmptyState icon="📋" title={LABELS.emptyHistory} message={LABELS.emptyHistoryMsg} />
+            ) : (
+              historyItems.slice(0, 8).map((item) => (
                 <HistoryItemRow
                   key={item.id}
                   item={item}
@@ -266,9 +288,9 @@ export function HomeScreen() {
                   onDelete={() => removeHistory(item.id)}
                   onToggleFavorite={() => toggleFavorite(item.id)}
                 />
-              ))}
-            </AppCard>
-          )}
+              ))
+            )}
+          </AppCard>
 
           <View style={styles.bottomPad} />
         </ScrollView>
@@ -308,18 +330,19 @@ const styles = StyleSheet.create({
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   appTitle: { fontSize: 22, fontWeight: '800' },
   flag: { fontSize: 18 },
-  headerActions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  headerActions: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   quickBtn: { borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   quickBtnText: { fontSize: 16 },
-  headerBtn: { padding: 4 },
-  headerIcon: { fontSize: 17 },
+  headerIcon: { fontSize: 17, padding: 4 },
   summaryRow: { flexDirection: 'row', gap: 8, marginBottom: 0 },
   summaryCard: { flex: 1, marginBottom: 8 },
   summaryLabel: { fontSize: 11, fontWeight: '600', marginBottom: 2 },
   summaryValue: { fontSize: 20, fontWeight: '900' },
   detailBtn: { marginTop: 8, paddingVertical: 8, borderTopWidth: 1, alignItems: 'center' },
   detailBtnText: { fontSize: 13, fontWeight: '700' },
-  suggestionText: { fontSize: 13, lineHeight: 18 },
+  suggestionFlag: { fontSize: 24, textAlign: 'center' },
+  suggestionCountry: { fontSize: 14, fontWeight: '700', textAlign: 'center', marginTop: 2 },
+  suggestionDiff: { fontSize: 16, fontWeight: '800', textAlign: 'center', marginTop: 2 },
   controlsRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
   controlHalf: { flex: 1 },
   inputInner: { padding: 12 },

@@ -5,7 +5,9 @@ import { useTheme } from '../theme/ThemeProvider';
 import { AppCard } from '../../components/AppCard';
 import { AmountInput } from '../../components/AmountInput';
 import { SalaryChart } from '../../components/SalaryChart';
+import { EmptyState } from '../../components/EmptyState';
 import { countries } from '../../data';
+import { LABELS } from '../../constants/appName';
 import { grossToNet } from '../../utils/salary';
 import { formatCurrency, parseInputAmount } from '../../utils/format';
 import type { Country } from '../../types';
@@ -50,6 +52,10 @@ export function CompareScreen() {
 
         <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>Pays B</Text>
         <CountryPicker selected={countryB.code} onSelect={setCountryB} theme={theme} />
+
+        {gross <= 0 && (
+          <EmptyState icon="⚖️" title={LABELS.emptyCompare} message={LABELS.emptyCompareMsg} />
+        )}
 
         {gross > 0 && (
           <>

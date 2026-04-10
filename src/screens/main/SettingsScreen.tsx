@@ -12,7 +12,7 @@ import { AppSwitchRow } from '../../components/AppSwitchRow';
 import { SegmentedControl } from '../../components/SegmentedControl';
 import { GradientButton } from '../../components/GradientButton';
 import { countries } from '../../data';
-import { APP_NAME, LABELS } from '../../constants/appName';
+import { APP_NAME, APP_TAGLINE, LABELS } from '../../constants/appName';
 import type { ThemeMode, Country } from '../../types';
 
 function SettingsSection({ title, children }: { title: string; children: React.ReactNode }) {
@@ -163,6 +163,11 @@ export function SettingsScreen() {
             </Text>
           </TouchableOpacity>
         </SettingsSection>
+
+        <View style={styles.footer}>
+          <Text style={[styles.footerName, { color: theme.textMuted }]}>{APP_NAME}</Text>
+          <Text style={[styles.footerTagline, { color: theme.textMuted }]}>{APP_TAGLINE}</Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -184,4 +189,7 @@ const styles = StyleSheet.create({
   infoValue: { fontSize: 15, fontWeight: '600' },
   rateBtn: { paddingVertical: 14, alignItems: 'center' },
   rateText: { fontSize: 16, fontWeight: '700' },
+  footer: { alignItems: 'center', paddingVertical: 20 },
+  footerName: { fontSize: 14, fontWeight: '700' },
+  footerTagline: { fontSize: 11, marginTop: 2 },
 });

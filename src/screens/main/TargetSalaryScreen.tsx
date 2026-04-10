@@ -9,7 +9,9 @@ import { AppCard } from '../../components/AppCard';
 import { AmountInput } from '../../components/AmountInput';
 import { SalaryChart } from '../../components/SalaryChart';
 import { GradientButton } from '../../components/GradientButton';
+import { EmptyState } from '../../components/EmptyState';
 import { getCountryByCode } from '../../data';
+import { LABELS } from '../../constants/appName';
 import { parseInputAmount, formatCurrency } from '../../utils/format';
 import { netToGross, monthlyToYearly } from '../../utils/salary';
 
@@ -59,9 +61,13 @@ export function TargetSalaryScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        <Text style={[styles.title, { color: theme.text }]}>Salaire cible</Text>
+        <Text style={[styles.title, { color: theme.text }]}>{LABELS.target}</Text>
 
         <AmountInput value={targetInput} onChangeText={(v) => { setTargetInput(v); setIncreasePercent(0); }} label="Net mensuel souhaité" symbol={symbol} />
+
+        {effectiveTarget <= 0 && (
+          <EmptyState icon="🎯" title={LABELS.emptyTarget} message={LABELS.emptyTargetMsg} />
+        )}
 
         {results.netMonthly > 0 && (
           <AppCard>
