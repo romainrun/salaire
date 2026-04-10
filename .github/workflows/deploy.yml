@@ -55,12 +55,22 @@ jobs:
 
             fuser -k 8085/tcp || true
 
+            export CI=1
+
             if command -v pm2 &> /dev/null; then
               pm2 delete salaire 2>/dev/null || true
-              pm2 start npm --name salaire -- start -- --host lan --port 8085 -c --non-interactive
+              pm2 start npx --name salaire -- expo start --host lan --port 8085 --clear
               pm2 save
             else
-              nohup npm start -- --host lan --port 8085 -c --non-interactive > /tmp/salaire.log 2>&1 &
+              nohup npx expo start --host lan --port 8085 --clear > /tmp/salaire.log 2>&1 &
+            fi
+
+            sleep 5
+            if ss -tlnp | grep -q 8085; then
+              echo "Expo server listening on port 8085"
+            else
+              echo "WARNING: Port 8085 not yet listening, check logs"
+              cat /tmp/salaire.log 2>/dev/null || pm2 logs salaire --lines 20 2>/dev/null || true
             fi
 
             echo "Deploy complete"
