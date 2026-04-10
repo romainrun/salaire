@@ -2,8 +2,26 @@
 
 ## Cursor Cloud specific instructions
 
-This is a new/empty repository named "salaire" (French for "salary"). As of initial setup, the repo contains only a `README.md`.
+This is a React Native (Expo SDK 54) salary converter app with TypeScript, Zustand, and AsyncStorage.
 
-- **No build system, dependencies, or services** exist yet. Future agents should check for newly added `package.json`, `requirements.txt`, `Makefile`, `docker-compose.yml`, or similar files before attempting any build/run/test commands.
-- **No lint, test, or build commands** are available. Once the project is bootstrapped with actual code, update this section with the relevant commands.
-- The repository is on the `main` branch with a single initial commit.
+### Stack
+- Expo SDK 54, React Native 0.81, TypeScript strict, Zustand, React Navigation
+
+### Commands
+- **Install**: `npm install`
+- **TypeScript check**: `npx tsc --noEmit`
+- **Start dev server**: `npx expo start --host lan --port 8086`
+- **Start web**: `npx expo start --web --port 8086`
+
+### CI/CD
+- Push to `main` triggers deploy to VM via SSH (`.github/workflows/deploy.yml`)
+- Tags `*_Store`, `*_Android`, `*_iOS` trigger store builds
+- VM deploy uses pm2 with `npm start -- --host lan --port 8086 -c`
+- Expo server runs on **port 8086** on the VM
+
+### Gotchas
+- Expo web requires `unstable_transformImportMeta: true` in `babel.config.js` to fix `import.meta` error
+- `--non-interactive` flag is NOT supported by Expo CLI — use `CI=1` env var instead
+- VM may hit `ENOSPC` (inotify watchers limit) — fix with `echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p`
+- `pm2 start npx` does not work reliably — use `pm2 start npm --name salaire -- start -- --host lan --port 8086 -c` instead
+- `babel-preset-expo` must be pinned to `~54.0.10` for SDK 54 compatibility
