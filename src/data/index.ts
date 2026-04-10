@@ -25,5 +25,10 @@ export function getCurrencyByCode(code: string): CurrencyRate | undefined {
 }
 
 export function getCurrencySymbol(currencyCode: string): string {
-  return currencyMap.get(currencyCode)?.symbol ?? currencyCode;
+  const country = countries.find((c) => c.currency === currencyCode);
+  return country?.currencySymbol ?? currencyCode;
+}
+
+export function getSmicForCountry(code: string): number | null {
+  return countryMap.get(code)?.smic ?? null;
 }

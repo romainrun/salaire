@@ -1,67 +1,106 @@
-import React, { useMemo } from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../features/theme/ThemeProvider';
+import { EditableValue } from './EditableValue';
 import type { SalaryResults } from '../types';
-import { formatCurrency } from '../utils/format';
 
 interface ResultGridProps {
   results: SalaryResults;
   symbol?: string;
+  activeField?: keyof SalaryResults | 'input';
+  onFieldPress?: (field: keyof SalaryResults) => void;
 }
 
 export const ResultGrid = React.memo(function ResultGrid({
   results,
-  symbol = '\u20ac',
+  symbol = '€',
+  activeField = 'input',
+  onFieldPress,
 }: ResultGridProps) {
   const { theme } = useTheme();
 
-  const rows = useMemo(
-    () => [
-      { label: 'Mensuel', gross: results.grossMonthly, net: results.netMonthly },
-      { label: 'Annuel', gross: results.grossYearly, net: results.netYearly },
-      { label: 'Journalier', gross: results.grossDaily, net: results.netDaily },
-    ],
-    [results]
+  const handlePress = useCallback(
+    (field: keyof SalaryResults) => {
+      onFieldPress?.(field);
+    },
+    [onFieldPress]
   );
 
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <View style={styles.labelCol} />
-        <Text style={[styles.headerText, { color: theme.textSecondary }]}>
-          Brut
-        </Text>
-        <Text style={[styles.headerText, { color: theme.primary }]}>
-          Net
-        </Text>
+        <Text style={[styles.headerText, { color: theme.textSecondary }]}>Brut</Text>
+        <Text style={[styles.headerText, { color: theme.primary }]}>Net</Text>
       </View>
-      {rows.map((row) => (
-        <View
-          key={row.label}
-          style={[styles.row, { borderBottomColor: theme.border }]}
-        >
-          <Text style={[styles.rowLabel, { color: theme.textSecondary }]}>
-            {row.label}
-          </Text>
-          <Text style={[styles.rowValue, { color: theme.text }]}>
-            {formatCurrency(row.gross, symbol)}
-          </Text>
-          <Text style={[styles.rowValue, { color: theme.primary }]}>
-            {formatCurrency(row.net, symbol)}
-          </Text>
-        </View>
-      ))}
+
+      <Text style={[styles.periodLabel, { color: theme.textMuted }]}>Mensuel</Text>
+      <View style={styles.valueRow}>
+        <EditableValue
+          label="Brut"
+          value={results.grossMonthly}
+          symbol={symbol}
+          isActive={activeField === 'grossMonthly'}
+          onPress={() => handlePress('grossMonthly')}
+        />
+        <EditableValue
+          label="Net"
+          value={results.netMonthly}
+          symbol={symbol}
+          isActive={activeField === 'netMonthly'}
+          isPrimary
+          onPress={() => handlePress('netMonthly')}
+        />
+      </View>
+
+      <Text style={[styles.periodLabel, { color: theme.textMuted }]}>Annuel</Text>
+      <View style={styles.valueRow}>
+        <EditableValue
+          label="Brut"
+          value={results.grossYearly}
+          symbol={symbol}
+          isActive={activeField === 'grossYearly'}
+          onPress={() => handlePress('grossYearly')}
+        />
+        <EditableValue
+          label="Net"
+          value={results.netYearly}
+          symbol={symbol}
+          isActive={activeField === 'netYearly'}
+          isPrimary
+          onPress={() => handlePress('netYearly')}
+        />
+      </View>
+
+      <Text style={[styles.periodLabel, { color: theme.textMuted }]}>Journalier</Text>
+      <View style={styles.valueRow}>
+        <EditableValue
+          label="Brut"
+          value={results.grossDaily}
+          symbol={symbol}
+          isActive={activeField === 'grossDaily'}
+          onPress={() => handlePress('grossDaily')}
+        />
+        <EditableValue
+          label="Net"
+          value={results.netDaily}
+          symbol={symbol}
+          isActive={activeField === 'netDaily'}
+          isPrimary
+          onPress={() => handlePress('netDaily')}
+        />
+      </View>
     </View>
   );
 });
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 8,
+    gap: 6,
   },
   headerRow: {
     flexDirection: 'row',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   labelCol: {
     flex: 1,
@@ -70,23 +109,18 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontWeight: '600',
-    textAlign: 'right',
+    textAlign: 'center',
   },
-  row: {
+  periodLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginTop: 8,
+    marginBottom: 2,
+  },
+  valueRow: {
     flexDirection: 'row',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    alignItems: 'center',
-  },
-  rowLabel: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  rowValue: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '700',
-    textAlign: 'right',
+    gap: 8,
   },
 });

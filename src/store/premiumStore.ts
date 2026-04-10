@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { asyncStorageAdapter } from './persist';
+import { zustandStorage } from './persist';
 
 interface PremiumState {
   isPremium: boolean;
@@ -30,7 +30,7 @@ export const usePremiumStore = create<PremiumState>()(
     }),
     {
       name: 'premium-storage',
-      storage: createJSONStorage(() => asyncStorageAdapter),
+      storage: createJSONStorage(() => zustandStorage),
     }
   )
 );

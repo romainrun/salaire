@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -20,22 +20,24 @@ export function TaxConfigScreen() {
   const pasRate = useOnboardingStore((s) => s.pasRate);
   const setPasEnabled = useOnboardingStore((s) => s.setPasEnabled);
   const setPasRate = useOnboardingStore((s) => s.setPasRate);
+  const completeOnboarding = useOnboardingStore((s) => s.completeOnboarding);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.header}>
-        <Text style={[styles.step, { color: theme.textSecondary }]}>
-          \u00c9tape 3/4
-        </Text>
-        <Text style={[styles.title, { color: theme.text }]}>
-          Configuration fiscale
-        </Text>
+        <View style={styles.headerTop}>
+          <Text style={[styles.step, { color: theme.textSecondary }]}>Étape 3/4</Text>
+          <TouchableOpacity onPress={completeOnboarding}>
+            <Text style={[styles.skipBtn, { color: theme.textMuted }]}>Passer</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={[styles.title, { color: theme.text }]}>Configuration fiscale</Text>
       </View>
 
       <AppCard>
         <AppSwitchRow
-          label="Pr\u00e9l\u00e8vement \u00e0 la source (PAS)"
-          description="Activer pour d\u00e9duire l\u2019imp\u00f4t sur le revenu"
+          label="Prélèvement à la source (PAS)"
+          description="Activer pour déduire l'impôt sur le revenu"
           value={pasEnabled}
           onValueChange={setPasEnabled}
         />
@@ -43,9 +45,7 @@ export function TaxConfigScreen() {
         {pasEnabled && (
           <View style={styles.sliderSection}>
             <View style={styles.sliderHeader}>
-              <Text style={[styles.sliderLabel, { color: theme.text }]}>
-                Taux PAS
-              </Text>
+              <Text style={[styles.sliderLabel, { color: theme.text }]}>Taux PAS</Text>
               <Text style={[styles.sliderValue, { color: theme.primary }]}>
                 {pasRate.toFixed(1)}%
               </Text>
@@ -62,73 +62,33 @@ export function TaxConfigScreen() {
               style={styles.slider}
             />
             <View style={styles.sliderLabels}>
-              <Text style={[styles.sliderBound, { color: theme.textMuted }]}>
-                0%
-              </Text>
-              <Text style={[styles.sliderBound, { color: theme.textMuted }]}>
-                50%
-              </Text>
+              <Text style={[styles.sliderBound, { color: theme.textMuted }]}>0%</Text>
+              <Text style={[styles.sliderBound, { color: theme.textMuted }]}>50%</Text>
             </View>
           </View>
         )}
       </AppCard>
 
       <View style={styles.footer}>
-        <GradientButton
-          title="Continuer"
-          onPress={() => navigation.navigate('Summary')}
-        />
+        <GradientButton title="Continuer" onPress={() => navigation.navigate('Summary')} />
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-  },
-  header: {
-    marginBottom: 32,
-  },
-  step: {
-    fontSize: 13,
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '800',
-  },
-  sliderSection: {
-    marginTop: 20,
-  },
-  sliderHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  sliderLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  sliderValue: {
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  slider: {
-    marginHorizontal: -8,
-  },
-  sliderLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  sliderBound: {
-    fontSize: 12,
-  },
-  footer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
+  container: { flex: 1, padding: 20 },
+  header: { marginBottom: 32 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  step: { fontSize: 13, fontWeight: '500', marginBottom: 4 },
+  skipBtn: { fontSize: 15, fontWeight: '600' },
+  title: { fontSize: 26, fontWeight: '800' },
+  sliderSection: { marginTop: 20 },
+  sliderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  sliderLabel: { fontSize: 15, fontWeight: '600' },
+  sliderValue: { fontSize: 20, fontWeight: '800' },
+  slider: { marginHorizontal: -8 },
+  sliderLabels: { flexDirection: 'row', justifyContent: 'space-between' },
+  sliderBound: { fontSize: 12 },
+  footer: { flex: 1, justifyContent: 'flex-end' },
 });

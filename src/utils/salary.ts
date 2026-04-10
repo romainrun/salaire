@@ -1,4 +1,4 @@
-import type { SalaryResults, SalaryInputType } from '../types';
+import type { SalaryResults, SalaryInputType, SalaryPeriod } from '../types';
 
 export function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -37,6 +37,15 @@ export function yearlyToMonthly(yearly: number, monthsPerYear = 12): number {
   return roundCurrency(yearly / monthsPerYear);
 }
 
+export function dailyFromMonthly(monthly: number, workDaysPerMonth = 21.67): number {
+  if (workDaysPerMonth === 0) return 0;
+  return roundCurrency(monthly / workDaysPerMonth);
+}
+
+export function monthlyFromDaily(daily: number, workDaysPerMonth = 21.67): number {
+  return roundCurrency(daily * workDaysPerMonth);
+}
+
 export function dailyFromYearly(yearly: number, workDays = 260): number {
   if (workDays === 0) return 0;
   return roundCurrency(yearly / workDays);
@@ -60,6 +69,7 @@ interface RecalculateOptions {
 export function recalculateFromInput(
   value: number,
   inputType: SalaryInputType,
+  period: SalaryPeriod,
   options: RecalculateOptions
 ): SalaryResults {
   const { taxRate, pasEnabled, pasRate, monthsPerYear = 12 } = options;
@@ -69,12 +79,32 @@ export function recalculateFromInput(
   let grossMonthly: number;
   let netMonthly: number;
 
-  if (inputType === 'gross') {
-    grossMonthly = roundCurrency(value);
-    netMonthly = grossToNet(grossMonthly, taxRate);
+  if (period === 'monthly') {
+    if (inputType === 'gross') {
+      grossMonthly = roundCurrency(value);
+      netMonthly = grossToNet(grossMonthly, taxRate);
+    } else {
+      netMonthly = roundCurrency(value);
+      grossMonthly = netToGross(netMonthly, taxRate);
+    }
+  } else if (period === 'yearly') {
+    const monthly = yearlyToMonthly(value, monthsPerYear);
+    if (inputType === 'gross') {
+      grossMonthly = monthly;
+      netMonthly = grossToNet(grossMonthly, taxRate);
+    } else {
+      netMonthly = monthly;
+      grossMonthly = netToGross(netMonthly, taxRate);
+    }
   } else {
-    netMonthly = roundCurrency(value);
-    grossMonthly = netToGross(netMonthly, taxRate);
+    const monthly = monthlyFromDaily(value);
+    if (inputType === 'gross') {
+      grossMonthly = monthly;
+      netMonthly = grossToNet(grossMonthly, taxRate);
+    } else {
+      netMonthly = monthly;
+      grossMonthly = netToGross(netMonthly, taxRate);
+    }
   }
 
   if (pasEnabled && pasRate > 0) {
@@ -83,15 +113,24 @@ export function recalculateFromInput(
 
   const grossYearly = monthlyToYearly(grossMonthly, monthsPerYear);
   const netYearly = monthlyToYearly(netMonthly, monthsPerYear);
-  const grossDaily = dailyFromYearly(grossYearly);
-  const netDaily = dailyFromYearly(netYearly);
+  const grossDaily = dailyFromMonthly(grossMonthly);
+  const netDaily = dailyFromMonthly(netMonthly);
 
-  return {
-    grossMonthly,
-    netMonthly,
-    grossYearly,
-    netYearly,
-    grossDaily,
-    netDaily,
-  };
+  return { grossMonthly, netMonthly, grossYearly, netYearly, grossDaily, netDaily };
+}
+
+export function recalculateFromField(
+  value: number,
+  field: keyof SalaryResults,
+  options: RecalculateOptions
+): SalaryResults {
+  const isGross = field.startsWith('gross');
+  const inputType: SalaryInputType = isGross ? 'gross' : 'net';
+
+  let period: SalaryPeriod;
+  if (field.includes('Monthly')) period = 'monthly';
+  else if (field.includes('Yearly')) period = 'yearly';
+  else period = 'daily';
+
+  return recalculateFromInput(value, inputType, period, options);
 }

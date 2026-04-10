@@ -24,6 +24,7 @@ export function CountrySelectionScreen() {
   const { theme } = useTheme();
   const selectedCountry = useOnboardingStore((s) => s.country);
   const setCountry = useOnboardingStore((s) => s.setCountry);
+  const completeOnboarding = useOnboardingStore((s) => s.completeOnboarding);
   const setMissingCountryMessage = useOnboardingStore((s) => s.setMissingCountryMessage);
 
   const [search, setSearch] = useState('');
@@ -33,9 +34,7 @@ export function CountrySelectionScreen() {
     if (!search.trim()) return countries;
     const q = search.toLowerCase();
     return countries.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.code.toLowerCase().includes(q)
+      (c) => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q)
     );
   }, [search]);
 
@@ -51,6 +50,10 @@ export function CountrySelectionScreen() {
       setMissingCountryMessage(missingText.trim());
     }
     navigation.navigate('UseCase');
+  };
+
+  const handleSkip = () => {
+    completeOnboarding();
   };
 
   const renderItem = useCallback(
@@ -70,16 +73,13 @@ export function CountrySelectionScreen() {
         >
           <Text style={styles.flag}>{item.flag}</Text>
           <View style={styles.countryInfo}>
-            <Text style={[styles.countryName, { color: theme.text }]}>
-              {item.name}
-            </Text>
+            <Text style={[styles.countryName, { color: theme.text }]}>{item.name}</Text>
             <Text style={[styles.countryMeta, { color: theme.textSecondary }]}>
-              {item.currency} \u00b7 {(item.taxRate * 100).toFixed(0)}% charges
+              {item.currencySymbol} · {(item.taxRate * 100).toFixed(0)}% charges
+              {item.smic ? ` · SMIC ${item.smic}` : ''}
             </Text>
           </View>
-          {active && (
-            <Text style={[styles.check, { color: theme.primary }]}>\u2713</Text>
-          )}
+          {active && <Text style={[styles.check, { color: theme.primary }]}>✓</Text>}
         </TouchableOpacity>
       );
     },
@@ -89,22 +89,19 @@ export function CountrySelectionScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.header}>
-        <Text style={[styles.step, { color: theme.textSecondary }]}>
-          \u00c9tape 1/4
-        </Text>
-        <Text style={[styles.title, { color: theme.text }]}>
-          S\u00e9lectionnez votre pays
-        </Text>
+        <View style={styles.headerTop}>
+          <Text style={[styles.step, { color: theme.textSecondary }]}>Étape 1/4</Text>
+          <TouchableOpacity onPress={handleSkip}>
+            <Text style={[styles.skipBtn, { color: theme.textMuted }]}>Passer</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={[styles.title, { color: theme.text }]}>Sélectionnez votre pays</Text>
       </View>
 
       <TextInput
         style={[
           styles.searchInput,
-          {
-            backgroundColor: theme.surfaceLight,
-            color: theme.text,
-            borderColor: theme.border,
-          },
+          { backgroundColor: theme.surfaceLight, color: theme.text, borderColor: theme.border },
         ]}
         placeholder="Rechercher un pays..."
         placeholderTextColor={theme.textMuted}
@@ -124,11 +121,7 @@ export function CountrySelectionScreen() {
         <TextInput
           style={[
             styles.missingInput,
-            {
-              backgroundColor: theme.surfaceLight,
-              color: theme.text,
-              borderColor: theme.border,
-            },
+            { backgroundColor: theme.surfaceLight, color: theme.text, borderColor: theme.border },
           ]}
           placeholder="Pays manquant ? Dites-le nous..."
           placeholderTextColor={theme.textMuted}
@@ -143,68 +136,26 @@ export function CountrySelectionScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-  },
-  header: {
-    marginBottom: 20,
-  },
-  step: {
-    fontSize: 13,
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '800',
-  },
+  container: { flex: 1, padding: 20 },
+  header: { marginBottom: 20 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  step: { fontSize: 13, fontWeight: '500', marginBottom: 4 },
+  skipBtn: { fontSize: 15, fontWeight: '600' },
+  title: { fontSize: 26, fontWeight: '800' },
   searchInput: {
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 15,
-    marginBottom: 12,
+    borderRadius: 12, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, marginBottom: 12,
   },
-  list: {
-    paddingBottom: 12,
-  },
+  list: { paddingBottom: 12 },
   countryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    marginBottom: 8,
+    flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 14, borderWidth: 1, marginBottom: 8,
   },
-  flag: {
-    fontSize: 28,
-    marginRight: 12,
-  },
-  countryInfo: {
-    flex: 1,
-  },
-  countryName: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  countryMeta: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  check: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  missingSection: {
-    marginBottom: 16,
-  },
+  flag: { fontSize: 28, marginRight: 12 },
+  countryInfo: { flex: 1 },
+  countryName: { fontSize: 15, fontWeight: '600' },
+  countryMeta: { fontSize: 12, marginTop: 2 },
+  check: { fontSize: 20, fontWeight: '700' },
+  missingSection: { marginBottom: 16 },
   missingInput: {
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 14,
+    borderRadius: 12, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 12, fontSize: 14,
   },
 });

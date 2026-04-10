@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { asyncStorageAdapter } from './persist';
+import { zustandStorage } from './persist';
 import type { UseCase } from '../types';
 import { defaultCountry } from '../data';
 
@@ -72,7 +72,7 @@ export const useOnboardingStore = create<OnboardingState>()(
     }),
     {
       name: 'onboarding-storage',
-      storage: createJSONStorage(() => asyncStorageAdapter),
+      storage: createJSONStorage(() => zustandStorage),
     }
   )
 );

@@ -1,51 +1,49 @@
 import React, { useCallback, useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
-  Share,
-} from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Share, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { useTheme } from '../../features/theme/ThemeProvider';
 import { useSalaryStore } from '../../store/salaryStore';
 import { useOnboardingStore } from '../../store/onboardingStore';
 import { usePremiumStore } from '../../store/premiumStore';
 import { AppCard } from '../../components/AppCard';
-import { AmountInput } from '../../components/AmountInput';
 import { SegmentedControl } from '../../components/SegmentedControl';
 import { ResultGrid } from '../../components/ResultGrid';
-import { GradientButton } from '../../components/GradientButton';
-import { EmptyState } from '../../components/EmptyState';
-import { getCountryByCode, getCurrencySymbol } from '../../data';
-import { formatCurrency } from '../../utils/format';
-import type { SalaryInputType } from '../../types';
+import { CustomKeyboard } from '../../components/CustomKeyboard';
+import { getCountryByCode, getSmicForCountry } from '../../data';
+import { formatCurrency, parseInputAmount } from '../../utils/format';
 import { generateShareText } from '../../features/share/share';
+import type { SalaryResults } from '../../types';
 
 export function HomeScreen() {
   const { theme } = useTheme();
   const inputValue = useSalaryStore((s) => s.inputValue);
   const inputType = useSalaryStore((s) => s.inputType);
+  const period = useSalaryStore((s) => s.period);
   const results = useSalaryStore((s) => s.results);
-  const mode = useSalaryStore((s) => s.mode);
+  const recentValues = useSalaryStore((s) => s.recentValues);
+  const activeField = useSalaryStore((s) => s.activeField);
   const history = useSalaryStore((s) => s.history);
   const setInputValue = useSalaryStore((s) => s.setInputValue);
   const setInputType = useSalaryStore((s) => s.setInputType);
-  const setMode = useSalaryStore((s) => s.setMode);
+  const setPeriod = useSalaryStore((s) => s.setPeriod);
+  const setActiveField = useSalaryStore((s) => s.setActiveField);
+  const updateFromField = useSalaryStore((s) => s.updateFromField);
+  const fillSmic = useSalaryStore((s) => s.fillSmic);
+  const addQuickAmount = useSalaryStore((s) => s.addQuickAmount);
   const saveSimulation = useSalaryStore((s) => s.saveSimulation);
+  const deleteHistoryItem = useSalaryStore((s) => s.deleteHistoryItem);
+  const loadSimulation = useSalaryStore((s) => s.loadSimulation);
   const recalculate = useSalaryStore((s) => s.recalculate);
   const country = useOnboardingStore((s) => s.country);
   const currency = useOnboardingStore((s) => s.currency);
-  const isPremium = usePremiumStore((s) => s.isPremium);
-  const adsUnlocked = usePremiumStore((s) => s.adsUnlocked);
-
-  const [saveTitle, setSaveTitle] = useState('');
 
   const countryData = getCountryByCode(country);
-  const symbol = getCurrencySymbol(currency);
-  const canUseAdvanced = isPremium || adsUnlocked;
+  const symbol = countryData?.currencySymbol ?? '€';
+  const smicValue = getSmicForCountry(country);
+
+  const [editingField, setEditingField] = useState<keyof SalaryResults | null>(null);
+  const [editBuffer, setEditBuffer] = useState('');
 
   const handleTypeChange = useCallback(
     (index: number) => {
@@ -54,208 +52,216 @@ export function HomeScreen() {
     [setInputType]
   );
 
-  const handleModeChange = useCallback(
+  const handlePeriodChange = useCallback(
     (index: number) => {
-      if (index === 1 && !canUseAdvanced) {
-        Alert.alert('Premium requis', 'D\u00e9bloquez le mode avanc\u00e9 avec Premium.');
-        return;
-      }
-      setMode(index === 0 ? 'simple' : 'advanced');
+      const periods = ['monthly', 'yearly', 'daily'] as const;
+      setPeriod(periods[index]);
     },
-    [setMode, canUseAdvanced]
+    [setPeriod]
   );
 
-  const handleSave = () => {
-    const title = saveTitle.trim() || `Simulation du ${new Date().toLocaleDateString('fr-FR')}`;
-    saveSimulation(title);
-    setSaveTitle('');
-    Alert.alert('Sauvegard\u00e9', 'Simulation enregistr\u00e9e dans l\u2019historique.');
-  };
+  const handleKeyPress = useCallback(
+    (key: string) => {
+      if (editingField) {
+        setEditBuffer((prev) => {
+          if (key === '.' && prev.includes('.')) return prev;
+          return prev + key;
+        });
+        const newVal = parseInputAmount(editBuffer + key);
+        updateFromField(editingField, newVal);
+      } else {
+        setInputValue(inputValue + key);
+      }
+    },
+    [inputValue, setInputValue, editingField, editBuffer, updateFromField]
+  );
+
+  const handleDelete = useCallback(() => {
+    if (editingField) {
+      setEditBuffer((prev) => {
+        const newBuf = prev.slice(0, -1);
+        const newVal = parseInputAmount(newBuf);
+        updateFromField(editingField, newVal);
+        return newBuf;
+      });
+    } else {
+      setInputValue(inputValue.slice(0, -1));
+    }
+  }, [inputValue, setInputValue, editingField, updateFromField]);
+
+  const handleFieldPress = useCallback(
+    (field: keyof SalaryResults) => {
+      setEditingField(field);
+      setEditBuffer(results[field].toString());
+      setActiveField(field);
+    },
+    [results, setActiveField]
+  );
+
+  const handleInputAreaPress = useCallback(() => {
+    setEditingField(null);
+    setEditBuffer('');
+    setActiveField('input');
+  }, [setActiveField]);
+
+  const handleRecentSelect = useCallback(
+    (val: number) => {
+      setInputValue(val.toString());
+      setEditingField(null);
+      setActiveField('input');
+    },
+    [setInputValue, setActiveField]
+  );
+
+  const handleSmicPress = useCallback(() => {
+    if (smicValue) {
+      fillSmic(smicValue);
+      setEditingField(null);
+    }
+  }, [smicValue, fillSmic]);
 
   const handleShare = async () => {
     const text = generateShareText(inputType, inputValue, results, symbol);
-    try {
-      await Share.share({ message: text });
-    } catch (_) {}
+    try { await Share.share({ message: text }); } catch (_) {}
   };
+
+  const handleAutoSave = useCallback(() => {
+    const val = parseInputAmount(inputValue);
+    if (val > 0) {
+      saveSimulation('');
+    }
+  }, [inputValue, saveSimulation]);
+
+  const periodIndex = period === 'monthly' ? 0 : period === 'yearly' ? 1 : 2;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={[styles.appTitle, { color: theme.text }]}>Salaire</Text>
-            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-              {countryData?.flag} {countryData?.name}
-            </Text>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+          <View style={styles.headerRow}>
+            <View>
+              <Text style={[styles.appTitle, { color: theme.text }]}>Salaire</Text>
+              <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+                {countryData?.flag} {countryData?.name}
+              </Text>
+            </View>
+            <View style={styles.headerActions}>
+              <TouchableOpacity onPress={recalculate} style={styles.headerBtn}>
+                <Text style={{ fontSize: 20 }}>🔄</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleShare} style={styles.headerBtn}>
+                <Text style={{ fontSize: 20 }}>📤</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleAutoSave} style={styles.headerBtn}>
+                <Text style={{ fontSize: 20 }}>💾</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          <View style={styles.headerActions}>
-            <TouchableOpacity onPress={recalculate} style={styles.headerBtn}>
-              <Text style={{ fontSize: 20 }}>{'\ud83d\udd04'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleShare} style={styles.headerBtn}>
-              <Text style={{ fontSize: 20 }}>{'\ud83d\udce4'}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
 
-        <AppCard>
-          <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>
-            Votre salaire r\u00e9el
-          </Text>
-          <Text style={[styles.netHighlight, { color: theme.primary }]}>
-            {formatCurrency(results.netMonthly, symbol)}
-          </Text>
-          <Text style={[styles.cardSubLabel, { color: theme.textMuted }]}>
-            net mensuel
-          </Text>
-        </AppCard>
+          <Animated.View entering={FadeIn.duration(400)}>
+            <AppCard>
+              <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>Votre salaire réel</Text>
+              <Text style={[styles.netHighlight, { color: theme.primary }]}>
+                {formatCurrency(results.netMonthly, symbol)}
+              </Text>
+              <Text style={[styles.cardSubLabel, { color: theme.textMuted }]}>net mensuel</Text>
+            </AppCard>
+          </Animated.View>
 
-        <SegmentedControl
-          values={['Simple', 'Avanc\u00e9']}
-          selectedIndex={mode === 'simple' ? 0 : 1}
-          onChange={handleModeChange}
-        />
-
-        <View style={styles.spacer} />
-
-        <SegmentedControl
-          values={['Brut', 'Net']}
-          selectedIndex={inputType === 'gross' ? 0 : 1}
-          onChange={handleTypeChange}
-        />
-
-        <View style={styles.spacer} />
-
-        <AmountInput
-          value={inputValue}
-          onChangeText={setInputValue}
-          label={inputType === 'gross' ? 'Salaire brut mensuel' : 'Salaire net mensuel'}
-          symbol={symbol}
-        />
-
-        <AppCard>
-          <ResultGrid results={results} symbol={symbol} />
-        </AppCard>
-
-        <AppCard>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>
-            Sauvegarder
-          </Text>
-          <AmountInput
-            value={saveTitle}
-            onChangeText={setSaveTitle}
-            label="Titre (optionnel)"
-            symbol=""
-            placeholder="Ma simulation..."
+          <SegmentedControl
+            values={['Brut', 'Net']}
+            selectedIndex={inputType === 'gross' ? 0 : 1}
+            onChange={handleTypeChange}
           />
-          <GradientButton title="Enregistrer" onPress={handleSave} compact />
-        </AppCard>
+          <View style={styles.spacer} />
+          <SegmentedControl
+            values={['Mensuel', 'Annuel', 'Journalier']}
+            selectedIndex={periodIndex}
+            onChange={handlePeriodChange}
+          />
+          <View style={styles.spacer} />
 
-        {history.length > 0 && (
+          <TouchableOpacity onPress={handleInputAreaPress} activeOpacity={0.9}>
+            <AppCard style={activeField === 'input' ? { borderColor: theme.primary, borderWidth: 2 } : undefined}>
+              <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>
+                {inputType === 'gross' ? 'Brut' : 'Net'} {period === 'monthly' ? 'mensuel' : period === 'yearly' ? 'annuel' : 'journalier'}
+              </Text>
+              <Text style={[styles.inputDisplay, { color: theme.text }]}>
+                {editingField === null ? (inputValue || '0') : (inputValue || '0')} {symbol}
+              </Text>
+            </AppCard>
+          </TouchableOpacity>
+
           <AppCard>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>
-              Historique
-            </Text>
-            {history.slice(0, 5).map((item) => (
-              <View
-                key={item.id}
-                style={[styles.historyItem, { borderBottomColor: theme.border }]}
-              >
-                <View>
-                  <Text style={[styles.historyTitle, { color: theme.text }]}>
-                    {item.title}
-                  </Text>
-                  <Text style={[styles.historyDate, { color: theme.textMuted }]}>
-                    {new Date(item.createdAt).toLocaleDateString('fr-FR')}
-                  </Text>
-                </View>
-                <Text style={[styles.historyValue, { color: theme.primary }]}>
-                  {formatCurrency(item.results.netMonthly, symbol)}
-                </Text>
-              </View>
-            ))}
+            <ResultGrid
+              results={results}
+              symbol={symbol}
+              activeField={activeField}
+              onFieldPress={handleFieldPress}
+            />
           </AppCard>
-        )}
 
-        {history.length === 0 && (
-          <EmptyState
-            title="Aucune simulation"
-            message="Saisissez un montant et enregistrez votre premi\u00e8re simulation."
-          />
-        )}
-      </ScrollView>
+          {history.length > 0 && (
+            <AppCard>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>Historique</Text>
+              {history.slice(0, 5).map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  onPress={() => loadSimulation(item)}
+                  onLongPress={() => deleteHistoryItem(item.id)}
+                  style={[styles.historyItem, { borderBottomColor: theme.border }]}
+                >
+                  <View>
+                    <Text style={[styles.historyTitle, { color: theme.text }]}>{item.title}</Text>
+                    <Text style={[styles.historyDate, { color: theme.textMuted }]}>
+                      {new Date(item.createdAt).toLocaleDateString('fr-FR')}
+                    </Text>
+                  </View>
+                  <Text style={[styles.historyValue, { color: theme.primary }]}>
+                    {formatCurrency(item.results.netMonthly, symbol)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </AppCard>
+          )}
+        </ScrollView>
+
+        <CustomKeyboard
+          onKeyPress={handleKeyPress}
+          onDelete={handleDelete}
+          recentValues={recentValues}
+          onRecentSelect={handleRecentSelect}
+          onQuickAdd={addQuickAmount}
+          smicValue={smicValue}
+          onSmicPress={handleSmicPress}
+          currencySymbol={symbol}
+        />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scroll: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  appTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-  },
-  subtitle: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  headerBtn: {
-    padding: 8,
-  },
-  cardLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  netHighlight: {
-    fontSize: 36,
-    fontWeight: '900',
-  },
-  cardSubLabel: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  spacer: {
-    height: 12,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
+  container: { flex: 1 },
+  flex: { flex: 1 },
+  scroll: { padding: 20, paddingBottom: 10 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  appTitle: { fontSize: 28, fontWeight: '800' },
+  subtitle: { fontSize: 14, marginTop: 2 },
+  headerActions: { flexDirection: 'row', gap: 12 },
+  headerBtn: { padding: 8 },
+  cardLabel: { fontSize: 14, fontWeight: '500', marginBottom: 4 },
+  netHighlight: { fontSize: 36, fontWeight: '900' },
+  cardSubLabel: { fontSize: 12, marginTop: 2 },
+  spacer: { height: 12 },
+  inputLabel: { fontSize: 13, fontWeight: '500', marginBottom: 6 },
+  inputDisplay: { fontSize: 28, fontWeight: '800' },
+  sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12 },
   historyItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: 12, borderBottomWidth: 1,
   },
-  historyTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  historyDate: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  historyValue: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
+  historyTitle: { fontSize: 14, fontWeight: '600' },
+  historyDate: { fontSize: 12, marginTop: 2 },
+  historyValue: { fontSize: 16, fontWeight: '700' },
 });

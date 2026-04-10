@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { asyncStorageAdapter } from './persist';
+import { zustandStorage } from './persist';
 import type { ThemeMode, SalaryMode } from '../types';
 
 interface UIState {
@@ -49,7 +49,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: 'ui-storage',
-      storage: createJSONStorage(() => asyncStorageAdapter),
+      storage: createJSONStorage(() => zustandStorage),
     }
   )
 );

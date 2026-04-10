@@ -8,7 +8,7 @@ export function generateShareText(
   symbol: string
 ): string {
   const lines = [
-    '\ud83d\udcb0 Mon Salaire - Simulation',
+    '💰 Mon Salaire - Simulation',
     '',
     `Saisie : ${inputValue} ${symbol} (${inputType === 'gross' ? 'brut' : 'net'})`,
     '',
@@ -21,7 +21,7 @@ export function generateShareText(
     `Brut journalier : ${formatCurrency(results.grossDaily, symbol)}`,
     `Net journalier : ${formatCurrency(results.netDaily, symbol)}`,
     '',
-    'Calcul\u00e9 avec l\u2019app Salaire',
+    'Calculé avec l\'app Salaire',
   ];
   return lines.join('\n');
 }
