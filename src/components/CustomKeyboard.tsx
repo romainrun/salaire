@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { useTheme } from '../features/theme/ThemeProvider';
 import { formatCurrency } from '../utils/format';
 
@@ -19,12 +18,9 @@ interface CustomKeyboardProps {
   activeCurrency?: string;
 }
 
-const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
-
 function KeyButton({
   label,
   onPress,
-  wide,
   variant,
   theme,
 }: {
@@ -34,18 +30,10 @@ function KeyButton({
   variant?: 'default' | 'accent' | 'danger';
   theme: ReturnType<typeof useTheme>['theme'];
 }) {
-  const scale = useSharedValue(1);
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
   const handlePress = useCallback(() => {
-    scale.value = withSpring(0.9, { damping: 15 }, () => {
-      scale.value = withSpring(1, { damping: 15 });
-    });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onPress();
-  }, [onPress, scale]);
+  }, [onPress]);
 
   const bgColor =
     variant === 'accent' ? theme.primary :
@@ -58,25 +46,19 @@ function KeyButton({
     theme.text;
 
   return (
-    <AnimatedTouchable
+    <TouchableOpacity
       onPress={handlePress}
-      activeOpacity={0.7}
-      style={[
-        styles.key,
-        { backgroundColor: bgColor },
-        wide && styles.keyWide,
-        animStyle,
-      ]}
+      activeOpacity={0.6}
+      style={[styles.key, { backgroundColor: bgColor }]}
     >
       <Text style={[styles.keyText, { color: textColor }]}>{label}</Text>
-    </AnimatedTouchable>
+    </TouchableOpacity>
   );
 }
 
 export const CustomKeyboard = React.memo(function CustomKeyboard({
   onKeyPress,
   onDelete,
-  onClear,
   recentValues = [],
   onRecentSelect,
   onQuickAdd,
@@ -84,7 +66,6 @@ export const CustomKeyboard = React.memo(function CustomKeyboard({
   onSmicPress,
   currencySymbol = '€',
   onCurrencyToggle,
-  activeCurrency,
 }: CustomKeyboardProps) {
   const { theme } = useTheme();
 
@@ -176,10 +157,7 @@ export const CustomKeyboard = React.memo(function CustomKeyboard({
             }}
           >
             <Text
-              style={[
-                styles.quickBtnText,
-                { color: qa.value > 0 ? theme.success : theme.danger },
-              ]}
+              style={[styles.quickBtnText, { color: qa.value > 0 ? theme.success : theme.danger }]}
             >
               {qa.label}
             </Text>
@@ -208,11 +186,8 @@ export const CustomKeyboard = React.memo(function CustomKeyboard({
                 theme={theme}
                 variant={key === '⌫' ? 'danger' : 'default'}
                 onPress={() => {
-                  if (key === '⌫') {
-                    onDelete();
-                  } else {
-                    onKeyPress(key);
-                  }
+                  if (key === '⌫') onDelete();
+                  else onKeyPress(key);
                 }}
               />
             ))}
@@ -224,85 +199,20 @@ export const CustomKeyboard = React.memo(function CustomKeyboard({
 });
 
 const styles = StyleSheet.create({
-  container: {
-    borderTopWidth: 1,
-    paddingBottom: 20,
-  },
-  suggestionsRow: {
-    maxHeight: 44,
-    marginTop: 8,
-  },
-  suggestionsContent: {
-    paddingHorizontal: 12,
-    gap: 8,
-    alignItems: 'center',
-  },
-  suggestion: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  suggestionText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  quickRow: {
-    maxHeight: 44,
-    marginTop: 8,
-  },
-  quickContent: {
-    paddingHorizontal: 12,
-    gap: 6,
-    alignItems: 'center',
-  },
-  quickBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  quickBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  quickSeparator: {
-    width: 1,
-    height: 24,
-    backgroundColor: '#333',
-    marginHorizontal: 4,
-  },
-  smicBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1.5,
-  },
-  smicBtnText: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  keysGrid: {
-    marginTop: 10,
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  keyRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  key: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-  },
-  keyWide: {
-    flex: 2,
-  },
-  keyText: {
-    fontSize: 22,
-    fontWeight: '700',
-  },
+  container: { borderTopWidth: 1, paddingBottom: 20 },
+  suggestionsRow: { maxHeight: 44, marginTop: 8 },
+  suggestionsContent: { paddingHorizontal: 12, gap: 8, alignItems: 'center' },
+  suggestion: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
+  suggestionText: { fontSize: 13, fontWeight: '700' },
+  quickRow: { maxHeight: 44, marginTop: 8 },
+  quickContent: { paddingHorizontal: 12, gap: 6, alignItems: 'center' },
+  quickBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
+  quickBtnText: { fontSize: 13, fontWeight: '700' },
+  quickSeparator: { width: 1, height: 24, backgroundColor: '#333', marginHorizontal: 4 },
+  smicBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, borderWidth: 1.5 },
+  smicBtnText: { fontSize: 13, fontWeight: '800' },
+  keysGrid: { marginTop: 10, paddingHorizontal: 16, gap: 8 },
+  keyRow: { flexDirection: 'row', gap: 8 },
+  key: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12 },
+  keyText: { fontSize: 22, fontWeight: '700' },
 });

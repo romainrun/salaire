@@ -1,7 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Share, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeIn } from 'react-native-reanimated';
 import { useTheme } from '../../features/theme/ThemeProvider';
 import { useSalaryStore } from '../../store/salaryStore';
 import { useOnboardingStore } from '../../store/onboardingStore';
@@ -158,15 +157,13 @@ export function HomeScreen() {
             </View>
           </View>
 
-          <Animated.View entering={FadeIn.duration(400)}>
-            <AppCard>
-              <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>Votre salaire réel</Text>
-              <Text style={[styles.netHighlight, { color: theme.primary }]}>
-                {formatCurrency(results.netMonthly, symbol)}
-              </Text>
-              <Text style={[styles.cardSubLabel, { color: theme.textMuted }]}>net mensuel</Text>
-            </AppCard>
-          </Animated.View>
+          <AppCard>
+            <Text style={[styles.cardLabel, { color: theme.textSecondary }]}>Votre salaire réel</Text>
+            <Text style={[styles.netHighlight, { color: theme.primary }]}>
+              {formatCurrency(results.netMonthly, symbol)}
+            </Text>
+            <Text style={[styles.cardSubLabel, { color: theme.textMuted }]}>net mensuel</Text>
+          </AppCard>
 
           <SegmentedControl
             values={['Brut', 'Net']}
