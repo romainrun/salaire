@@ -1,0 +1,170 @@
+name: Deploy & Store Release
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - '*_Store'
+      - '*_Android'
+      - '*_iOS'
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to VM
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+
+            PROJECT_DIR="/home/${{ secrets.SSH_USER }}/expo-projects/salaire"
+            REPO_URL="https://github.com/${{ github.repository }}.git"
+            EXPECTED_SHA="${{ github.sha }}"
+
+            mkdir -p "$PROJECT_DIR"
+            cd "$PROJECT_DIR"
+
+            if [ ! -d ".git" ]; then
+              git clone "$REPO_URL" .
+            fi
+
+            git fetch origin main
+            git reset --hard origin/main
+            git clean -fd
+            git checkout main
+
+            ACTUAL_SHA=$(git rev-parse HEAD)
+            echo "Expected: $EXPECTED_SHA"
+            echo "Actual:   $ACTUAL_SHA"
+            if [ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]; then
+              echo "WARNING: SHA mismatch"
+            fi
+
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            nvm use --lts || nvm install --lts
+
+            npm install
+
+            rm -rf .expo .metro-cache
+
+            fuser -k 8085/tcp || true
+
+            if command -v pm2 &> /dev/null; then
+              pm2 delete salaire 2>/dev/null || true
+              pm2 start npm --name salaire -- start -- --host lan --port 8085 -c --non-interactive
+              pm2 save
+            else
+              nohup npm start -- --host lan --port 8085 -c --non-interactive > /tmp/salaire.log 2>&1 &
+            fi
+
+            echo "Deploy complete"
+
+  store-release-android:
+    if: contains(github.ref, '_Store') || contains(github.ref, '_Android')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.EXPO_ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android-keystore.jks
+
+      - name: Build Android AAB
+        run: |
+          eas build --platform android --profile production --local --non-interactive --output Salaire-android.aab
+        env:
+          EXPO_EAS_PROJECT_ID: ${{ secrets.EXPO_EAS_PROJECT_ID }}
+          EXPO_OWNER: ${{ secrets.EXPO_OWNER }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Salaire-android.aab
+          path: Salaire-android.aab
+
+      - name: Upload to Play Store
+        if: contains(github.ref, '_Store') || contains(github.ref, '_Android')
+        run: |
+          echo '${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}' > google-sa.json
+          npx @nicepkg/gp-upload \
+            --key google-sa.json \
+            --package com.romainrun.salaire \
+            --aab Salaire-android.aab \
+            --track production
+
+  store-release-ios:
+    if: contains(github.ref, '_Store') || contains(github.ref, '_iOS')
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.2
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Decode ASC API Key
+        run: |
+          echo "${{ secrets.ASC_API_KEY_P8_B64 }}" | base64 -d > AuthKey.p8
+
+      - name: Build iOS IPA
+        run: |
+          eas build --platform ios --profile production --local --non-interactive --output Salaire-ios.ipa
+        env:
+          EXPO_EAS_PROJECT_ID: ${{ secrets.EXPO_EAS_PROJECT_ID }}
+          EXPO_OWNER: ${{ secrets.EXPO_OWNER }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Salaire-ios.ipa
+          path: Salaire-ios.ipa
+
+      - name: Submit to App Store
+        if: contains(github.ref, '_Store') || contains(github.ref, '_iOS')
+        run: |
+          xcrun altool --upload-app \
+            --type ios \
+            --file Salaire-ios.ipa \
+            --apiKey ${{ secrets.ASC_API_KEY_ID }} \
+            --apiIssuer ${{ secrets.ASC_API_ISSUER_ID }}

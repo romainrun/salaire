@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "Salaire",
+    "slug": "salaire",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F0F14"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.romainrun.salaire"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0F0F14"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.romainrun.salaire"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    }
+  }
+}

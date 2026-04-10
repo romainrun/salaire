@@ -1,0 +1,11 @@
+[
+  { "code": "EUR", "symbol": "\u20ac", "rateToEUR": 1.0 },
+  { "code": "USD", "symbol": "$", "rateToEUR": 0.92 },
+  { "code": "GBP", "symbol": "\u00a3", "rateToEUR": 1.16 },
+  { "code": "CHF", "symbol": "CHF", "rateToEUR": 1.04 },
+  { "code": "CAD", "symbol": "CA$", "rateToEUR": 0.68 },
+  { "code": "MAD", "symbol": "MAD", "rateToEUR": 0.092 },
+  { "code": "TND", "symbol": "TND", "rateToEUR": 0.30 },
+  { "code": "XOF", "symbol": "XOF", "rateToEUR": 0.0015 },
+  { "code": "DZD", "symbol": "DZD", "rateToEUR": 0.0068 }
+]

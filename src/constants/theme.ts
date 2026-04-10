@@ -1,0 +1,43 @@
+export const darkTheme = {
+  background: '#0F0F14',
+  surface: '#1A1A24',
+  surfaceLight: '#24243A',
+  card: '#1E1E2E',
+  primary: '#6C63FF',
+  primaryLight: '#8B83FF',
+  secondary: '#FF6B9D',
+  accent: '#00D9A6',
+  text: '#FFFFFF',
+  textSecondary: '#A0A0B8',
+  textMuted: '#6B6B80',
+  border: '#2A2A3E',
+  success: '#00D9A6',
+  warning: '#FFB347',
+  danger: '#FF6B6B',
+  gradient: ['#6C63FF', '#8B83FF'] as const,
+  gradientSecondary: ['#FF6B9D', '#FF8FB1'] as const,
+  gradientDanger: ['#FF6B6B', '#FF8E8E'] as const,
+};
+
+export const lightTheme = {
+  background: '#F5F5FA',
+  surface: '#FFFFFF',
+  surfaceLight: '#F0F0F8',
+  card: '#FFFFFF',
+  primary: '#6C63FF',
+  primaryLight: '#8B83FF',
+  secondary: '#FF6B9D',
+  accent: '#00B88C',
+  text: '#1A1A2E',
+  textSecondary: '#6B6B80',
+  textMuted: '#A0A0B8',
+  border: '#E0E0EA',
+  success: '#00B88C',
+  warning: '#F0A030',
+  danger: '#E05050',
+  gradient: ['#6C63FF', '#8B83FF'] as const,
+  gradientSecondary: ['#FF6B9D', '#FF8FB1'] as const,
+  gradientDanger: ['#FF6B6B', '#FF8E8E'] as const,
+};
+
+export type AppTheme = typeof darkTheme;
