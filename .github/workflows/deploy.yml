@@ -109,10 +109,10 @@ jobs:
 
       - name: Build Android AAB
         run: |
-          eas build --platform android --profile production --local --non-interactive --output Salaire-android.aab
+          CI=1 eas build --platform android --profile production --local --output Salaire-android.aab
         env:
-          EXPO_EAS_PROJECT_ID: ${{ secrets.EXPO_EAS_PROJECT_ID }}
-          EXPO_OWNER: ${{ secrets.EXPO_OWNER }}
+          EXPO_EAS_PROJECT_ID: 6ceb6c7f-7f85-43c8-be7f-028ef8e51851
+          EXPO_OWNER: krorun
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -160,10 +160,10 @@ jobs:
 
       - name: Build iOS IPA
         run: |
-          eas build --platform ios --profile production --local --non-interactive --output Salaire-ios.ipa
+          CI=1 eas build --platform ios --profile production --local --output Salaire-ios.ipa
         env:
-          EXPO_EAS_PROJECT_ID: ${{ secrets.EXPO_EAS_PROJECT_ID }}
-          EXPO_OWNER: ${{ secrets.EXPO_OWNER }}
+          EXPO_EAS_PROJECT_ID: 6ceb6c7f-7f85-43c8-be7f-028ef8e51851
+          EXPO_OWNER: krorun
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

@@ -2,6 +2,7 @@
   "expo": {
     "name": "Salaire Net Brut Calculateur",
     "slug": "salaire",
+    "owner": "krorun",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,9 +15,17 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.romainrun.salaire"
+      "bundleIdentifier": "com.romainrun.salaire",
+      "infoPlist": {
+        "GADApplicationIdentifier": "ca-app-pub-3137130387262789~7100960852",
+        "NSUserTrackingUsageDescription": "Cette autorisation permet d'afficher des offres plus pertinentes."
+      }
     },
     "android": {
+      "googleServicesFile": "./google-services.json",
+      "config": {
+        "googleMobileAdsAppId": "ca-app-pub-3137130387262789~7100960852"
+      },
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0F0F14"
@@ -27,6 +36,24 @@
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
+    },
+    "plugins": [
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-3137130387262789~7100960852",
+          "iosAppId": "ca-app-pub-3137130387262789~7100960852",
+          "userTrackingUsageDescription": "Cette autorisation permet d'afficher des offres plus pertinentes.",
+          "optimizeInitialization": true,
+          "optimizeAdLoading": true
+        }
+      ],
+      "react-native-iap"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "6ceb6c7f-7f85-43c8-be7f-028ef8e51851"
+      }
     }
   }
 }

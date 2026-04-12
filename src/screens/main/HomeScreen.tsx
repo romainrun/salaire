@@ -243,12 +243,15 @@ export function HomeScreen() {
   }, [setPremium]);
 
   const handleWatchAdUnlock = useCallback(async () => {
+    let result: Awaited<ReturnType<typeof watchAdAndUnlock>>;
     if (paywallReason === 'feature-lock') {
-      await watchAdAndUnlock('history');
+      result = await watchAdAndUnlock('history');
     } else {
-      await watchAdAndUnlock('adFree');
+      result = await watchAdAndUnlock('adFree');
     }
-    closePaywall();
+    if (result === 'rewarded') {
+      closePaywall();
+    }
   }, [paywallReason, watchAdAndUnlock]);
 
   const handleOpenPaywall = useCallback(
@@ -452,7 +455,6 @@ export function HomeScreen() {
       <PaywallModal
         visible={paywallVisible}
         onClose={closePaywall}
-        onUpgrade={handleUpgrade}
         onWatchAd={handleWatchAdUnlock}
       />
     </SafeAreaView>

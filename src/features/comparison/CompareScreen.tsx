@@ -138,13 +138,11 @@ export function CompareScreen() {
       <PaywallModal
         visible={paywallVisible}
         onClose={() => setPaywallVisible(false)}
-        onUpgrade={() => {
-          unlockPremium();
-          setPaywallVisible(false);
-        }}
         onWatchAd={async () => {
-          await watchAdAndUnlock('comparison');
-          setPaywallVisible(false);
+          const result = await watchAdAndUnlock('comparison');
+          if (result === 'rewarded') {
+            setPaywallVisible(false);
+          }
         }}
       />
     </SafeAreaView>

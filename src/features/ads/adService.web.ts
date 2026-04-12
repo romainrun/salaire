@@ -1,4 +1,5 @@
 import type { AdService, InterstitialShowResult, RewardedShowResult } from './types';
+import { ADMOB_CONFIG } from '../../config/monetization';
 
 class WebAdService implements AdService {
   async initialize(): Promise<void> {}
@@ -17,7 +18,7 @@ class WebAdService implements AdService {
     return 'skipped';
   }
   getBannerUnitId(): string | null {
-    return null;
+    return ADMOB_CONFIG.banner;
   }
   isSupported(): boolean {
     return false;

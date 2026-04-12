@@ -1,3 +1,4 @@
+import { Alert } from 'react-native';
 import { useCallback } from 'react';
 import { adService } from './adService';
 import { usePremiumStore, type UnlockableFeature } from '../../store/premiumStore';
@@ -28,6 +29,12 @@ export function useRewardedAd() {
         return 'rewarded' as const;
       }
       const result = await adService.tryShowRewarded(() => rewardForTarget(target));
+      if (result !== 'rewarded') {
+        Alert.alert(
+          'Pub indisponible',
+          'La publicité récompensée est momentanément indisponible. Réessaie dans un instant.'
+        );
+      }
       return result;
     },
     [isPremium, rewardForTarget]

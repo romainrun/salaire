@@ -1,4 +1,5 @@
 import type { AdService, InterstitialShowResult, RewardedShowResult } from './types';
+import { ADMOB_CONFIG } from '../../config/monetization';
 
 const INTERSTITIAL_LOAD_RETRY_MS = 2000;
 const REWARDED_LOAD_RETRY_MS = 2000;
@@ -51,15 +52,9 @@ class MobileAdService implements AdService {
 
   constructor(sdk: AdSdk) {
     this.sdk = sdk;
-    this.interstitialUnitId = __DEV__
-      ? sdk.TestIds.INTERSTITIAL
-      : process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_ID ?? null;
-    this.rewardedUnitId = __DEV__
-      ? sdk.TestIds.REWARDED
-      : process.env.EXPO_PUBLIC_ADMOB_REWARDED_ID ?? null;
-    this.bannerUnitId = __DEV__
-      ? sdk.TestIds.BANNER
-      : process.env.EXPO_PUBLIC_ADMOB_BANNER_ID ?? null;
+    this.interstitialUnitId = __DEV__ ? sdk.TestIds.INTERSTITIAL : ADMOB_CONFIG.interstitial;
+    this.rewardedUnitId = __DEV__ ? sdk.TestIds.REWARDED : ADMOB_CONFIG.rewarded;
+    this.bannerUnitId = __DEV__ ? sdk.TestIds.BANNER : ADMOB_CONFIG.banner;
   }
 
   async initialize(): Promise<void> {

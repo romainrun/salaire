@@ -99,10 +99,7 @@ export function SettingsScreen() {
       {
         text: 'Regarder',
         onPress: async () => {
-          const result = await watchAdAndUnlock('adFree');
-          if (result !== 'rewarded') {
-            Alert.alert('Info', 'La pub n\'est pas prête. Réessayez ou passez Premium.');
-          }
+          await watchAdAndUnlock('adFree');
         },
       },
     ]);
@@ -114,10 +111,7 @@ export function SettingsScreen() {
       {
         text: 'Regarder',
         onPress: async () => {
-          const result = await watchAdAndUnlock('advancedOptions');
-          if (result !== 'rewarded') {
-            Alert.alert('Info', 'La pub n\'est pas prête. Passez Premium pour accès immédiat.');
-          }
+          await watchAdAndUnlock('advancedOptions');
         },
       },
       { text: 'Premium', onPress: () => openPaywall('feature-lock') },
@@ -242,13 +236,11 @@ export function SettingsScreen() {
       <PaywallModal
         visible={paywallVisible}
         onClose={closePaywall}
-        onUpgrade={() => {
-          unlockPremium();
-          closePaywall();
-        }}
         onWatchAd={async () => {
-          await watchAdAndUnlock('adFree');
-          closePaywall();
+          const result = await watchAdAndUnlock('adFree');
+          if (result === 'rewarded') {
+            closePaywall();
+          }
         }}
       />
     </SafeAreaView>
