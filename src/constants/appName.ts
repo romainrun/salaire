@@ -1,4 +1,4 @@
-export const APP_NAME = 'PayFlow';
+export const APP_NAME = 'Salaire Net Brut Calculateur';
 export const APP_TAGLINE = 'Comprenez votre salaire instantanément';
 
 export const LABELS = {

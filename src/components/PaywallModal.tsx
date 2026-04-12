@@ -23,7 +23,7 @@ export function PaywallModal({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <AppCard style={styles.card}>
-          <Text style={[styles.title, { color: theme.text }]}>🚀 Unlock full PayFlow</Text>
+          <Text style={[styles.title, { color: theme.text }]}>🚀 Unlock full Salaire Net Brut Calculateur</Text>
           <Text style={[styles.bullet, { color: theme.textSecondary }]}>✔ Remove all ads</Text>
           <Text style={[styles.bullet, { color: theme.textSecondary }]}>✔ Unlimited salary comparisons</Text>
           <Text style={[styles.bullet, { color: theme.textSecondary }]}>✔ Advanced salary simulations</Text>
