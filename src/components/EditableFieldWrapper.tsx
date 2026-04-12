@@ -14,11 +14,31 @@ export const EditableFieldWrapper = React.memo(function EditableFieldWrapper({ i
   const glowAnim = useRef(new Animated.Value(isActive ? 1 : 0)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.spring(scaleAnim, { toValue: isActive ? 1.02 : 1, useNativeDriver: true, friction: 8 }),
-      Animated.timing(opacityAnim, { toValue: isActive ? 1 : 0.7, duration: 200, useNativeDriver: true }),
-      Animated.timing(glowAnim, { toValue: isActive ? 1 : 0, duration: 200, useNativeDriver: false }),
-    ]).start();
+    const nativeAnimations = Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: isActive ? 1.02 : 1,
+        useNativeDriver: true,
+        friction: 8,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: isActive ? 1 : 0.7,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]);
+    const glowAnimation = Animated.timing(glowAnim, {
+      toValue: isActive ? 1 : 0,
+      duration: 200,
+      useNativeDriver: false,
+    });
+
+    nativeAnimations.start();
+    glowAnimation.start();
+
+    return () => {
+      nativeAnimations.stop();
+      glowAnimation.stop();
+    };
   }, [isActive, scaleAnim, opacityAnim, glowAnim]);
 
   const shadowOpacity = glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.5] });
