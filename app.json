@@ -31,7 +31,8 @@
         "backgroundColor": "#0F0F14"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.romainrun.salaire"
+      "package": "com.romainrun.salaire",
+      "versionCode": 2604122012
     },
     "web": {
       "favicon": "./assets/favicon.png",
