@@ -5,10 +5,25 @@ import { StyleSheet, View } from 'react-native';
 import { ThemeProvider, useTheme } from './src/features/theme/ThemeProvider';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { useSalaryRealtimeSync } from './src/hooks/useSalaryRealtimeSync';
+import { adService } from './src/features/ads/adService';
+import { useUIStore } from './src/store/uiStore';
+import { usePremiumStore } from './src/store/premiumStore';
 
 function AppContent() {
   const { isDark } = useTheme();
+  const startSession = useUIStore((s) => s.startSession);
+  const clearExpiredUnlocks = usePremiumStore((s) => s.clearExpiredUnlocks);
   useSalaryRealtimeSync();
+
+  React.useEffect(() => {
+    startSession();
+    clearExpiredUnlocks();
+    adService
+      .initialize()
+      .catch((error) => console.warn('[ads] init failed at app bootstrap', error));
+    adService.preloadInterstitial();
+    adService.preloadRewarded();
+  }, [clearExpiredUnlocks, startSession]);
 
   return (
     <>

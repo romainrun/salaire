@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
@@ -6,11 +6,16 @@ import { AppCard } from '../../components/AppCard';
 import { AmountInput } from '../../components/AmountInput';
 import { SalaryChart } from '../../components/SalaryChart';
 import { EmptyState } from '../../components/EmptyState';
+import { PaywallModal } from '../../components/PaywallModal';
 import { countries } from '../../data';
 import { LABELS } from '../../constants/appName';
 import { grossToNet } from '../../utils/salary';
 import { formatCurrency, parseInputAmount } from '../../utils/format';
 import type { Country } from '../../types';
+import { useFeatureGate } from '../premium/useFeatureGate';
+import { useRewardedAd } from '../ads/useRewardedAd';
+import { usePremiumStore } from '../../store/premiumStore';
+import { useUIStore } from '../../store/uiStore';
 
 function CountryPicker({ selected, onSelect, theme }: { selected: string; onSelect: (c: Country) => void; theme: ReturnType<typeof useTheme>['theme'] }) {
   return (
@@ -34,11 +39,43 @@ export function CompareScreen() {
   const [salary, setSalary] = useState('');
   const [countryA, setCountryA] = useState(countries[0]);
   const [countryB, setCountryB] = useState(countries[4]);
+  const [paywallVisible, setPaywallVisible] = useState(false);
+  const comparisonGate = useFeatureGate('comparison');
+  const isPremium = usePremiumStore((s) => s.isPremium);
+  const isComparisonRewardedUnlocked = usePremiumStore((s) => s.isFeatureUnlocked('comparison'));
+  const incrementComparisonUsage = useUIStore((s) => s.incrementComparisonUsage);
+  const resetComparisonUsage = useUIStore((s) => s.resetComparisonUsage);
+  const unlockPremium = usePremiumStore((s) => s.unlockPremium);
+  const { watchAdAndUnlock } = useRewardedAd();
 
   const gross = parseInputAmount(salary);
   const netA = useMemo(() => grossToNet(gross, countryA.taxRate), [gross, countryA.taxRate]);
   const netB = useMemo(() => grossToNet(gross, countryB.taxRate), [gross, countryB.taxRate]);
   const diff = netA - netB;
+  const isLimitedMode = !isPremium && !isComparisonRewardedUnlocked;
+
+  useEffect(() => {
+    if (!isLimitedMode) {
+      resetComparisonUsage();
+    }
+  }, [isLimitedMode, resetComparisonUsage]);
+
+  const onSelectCountry = (target: 'A' | 'B', value: Country) => {
+    const sameSelection =
+      (target === 'A' && value.code === countryA.code) ||
+      (target === 'B' && value.code === countryB.code);
+    if (sameSelection) return;
+    if (!comparisonGate.allowed) {
+      setPaywallVisible(true);
+      return;
+    }
+    if (target === 'A') {
+      setCountryA(value);
+    } else {
+      setCountryB(value);
+    }
+    incrementComparisonUsage();
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
@@ -48,10 +85,16 @@ export function CompareScreen() {
         <AmountInput value={salary} onChangeText={setSalary} label="Salaire brut mensuel" symbol="€" />
 
         <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>Pays A</Text>
-        <CountryPicker selected={countryA.code} onSelect={setCountryA} theme={theme} />
+        <CountryPicker selected={countryA.code} onSelect={(country) => onSelectCountry('A', country)} theme={theme} />
 
         <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>Pays B</Text>
-        <CountryPicker selected={countryB.code} onSelect={setCountryB} theme={theme} />
+        <CountryPicker selected={countryB.code} onSelect={(country) => onSelectCountry('B', country)} theme={theme} />
+
+        {isLimitedMode ? (
+          <Text style={[styles.lockHint, { color: theme.warning }]}>
+            Comparaison gratuite limitée à 1. Regarde une pub ou passe Premium.
+          </Text>
+        ) : null}
 
         {gross <= 0 && (
           <EmptyState icon="⚖️" title={LABELS.emptyCompare} message={LABELS.emptyCompareMsg} />
@@ -92,6 +135,18 @@ export function CompareScreen() {
           </>
         )}
       </ScrollView>
+      <PaywallModal
+        visible={paywallVisible}
+        onClose={() => setPaywallVisible(false)}
+        onUpgrade={() => {
+          unlockPremium();
+          setPaywallVisible(false);
+        }}
+        onWatchAd={async () => {
+          await watchAdAndUnlock('comparison');
+          setPaywallVisible(false);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -101,6 +156,7 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: 14, paddingTop: 8, paddingBottom: 20 },
   title: { fontSize: 22, fontWeight: '800', marginBottom: 12 },
   sectionLabel: { fontSize: 12, fontWeight: '600', marginTop: 8, marginBottom: 4 },
+  lockHint: { fontSize: 12, marginBottom: 6, fontWeight: '600' },
   countryRow: { gap: 6, paddingVertical: 4 },
   chip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, gap: 4 },
   chipFlag: { fontSize: 14 },

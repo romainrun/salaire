@@ -5,9 +5,11 @@ import type { SalaryInputType, SalaryMode, SalaryPeriod, SalaryResults, Simulati
 import { recalculateFromInput, recalculateFromField, emptyResults } from '../utils/salary';
 import { parseSalaryInput } from '../utils/parseSalaryInput';
 import { generateId } from '../utils/ids';
+import { usePremiumStore } from './premiumStore';
 
 const MAX_HISTORY = 20;
 const MAX_RECENT_VALUES = 5;
+const FREE_HISTORY_LIMIT = 3;
 
 interface SalaryState {
   inputValue: string;
@@ -125,7 +127,15 @@ export const useSalaryStore = create<SalaryState>()(
         set((state) => ({ period, results: computeResults({ ...state, period }) }));
       },
 
-      setMode: (mode) => set({ mode }),
+      setMode: (mode) => {
+        const premium = usePremiumStore.getState();
+        const isAdvancedAllowed =
+          premium.isPremium || premium.isFeatureUnlocked('advancedOptions');
+        if (mode === 'advanced' && !isAdvancedAllowed) {
+          return;
+        }
+        set({ mode });
+      },
       setActiveField: (field) => set({ activeField: field }),
       setDisplayCurrency: (code) => set({ displayCurrency: code }),
 
@@ -185,6 +195,12 @@ export const useSalaryStore = create<SalaryState>()(
         const state = get();
         const value = parseSalaryInput(state.inputValue);
         if (value <= 0) return;
+        const premiumState = usePremiumStore.getState();
+        const hasUnlimitedHistory =
+          premiumState.isPremium || premiumState.isFeatureUnlocked('history');
+        if (!hasUnlimitedHistory && state.history.length >= FREE_HISTORY_LIMIT) {
+          return;
+        }
         const item: SimulationHistoryItem = {
           id: generateId(),
           title: title || `Simulation du ${new Date().toLocaleDateString('fr-FR')}`,

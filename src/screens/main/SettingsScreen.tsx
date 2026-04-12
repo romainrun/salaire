@@ -14,6 +14,10 @@ import { GradientButton } from '../../components/GradientButton';
 import { countries } from '../../data';
 import { APP_NAME, APP_TAGLINE, LABELS } from '../../constants/appName';
 import type { ThemeMode, Country } from '../../types';
+import { useRewardedAd } from '../../features/ads/useRewardedAd';
+import { useFeatureGate } from '../../features/premium/useFeatureGate';
+import { PaywallModal } from '../../components/PaywallModal';
+import { closePaywall, openPaywall } from '../../features/premium/paywall';
 
 function SettingsSection({ title, children }: { title: string; children: React.ReactNode }) {
   const { theme } = useTheme();
@@ -40,8 +44,14 @@ export function SettingsScreen() {
 
   const isPremium = usePremiumStore((s) => s.isPremium);
   const unlockPremium = usePremiumStore((s) => s.unlockPremium);
-  const unlockAds = usePremiumStore((s) => s.unlockAds);
   const resetPremium = usePremiumStore((s) => s.resetPremium);
+  const showTopHomeBanner = useUIStore((s) => s.showTopHomeBanner);
+  const setShowTopHomeBanner = useUIStore((s) => s.setShowTopHomeBanner);
+  const paywallVisible = useUIStore((s) => s.paywallVisible);
+  const { watchAdAndUnlock } = useRewardedAd();
+  const advancedGate = useFeatureGate('advancedOptions');
+  const salaryMode = useSalaryStore((s) => s.mode);
+  const setSalaryMode = useSalaryStore((s) => s.setMode);
 
   const themeOptions: ThemeMode[] = ['dark', 'light', 'system'];
   const themeLabels = ['Sombre', 'Clair', 'Système'];
@@ -76,7 +86,7 @@ export function SettingsScreen() {
     if (isPremium) {
       Alert.alert('Premium', 'Vous avez déjà Premium !');
     } else {
-      Alert.alert('Débloquer Premium', 'Simuler l\'achat Premium ?', [
+      Alert.alert('Débloquer Premium', 'Activer Premium (achat unique 3,99€ simulé) ?', [
         { text: 'Annuler', style: 'cancel' },
         { text: 'Débloquer', onPress: unlockPremium },
       ]);
@@ -84,10 +94,42 @@ export function SettingsScreen() {
   };
 
   const handleWatchAd = () => {
-    Alert.alert('Regarder une publicité', 'Simuler le visionnage pour débloquer temporairement ?', [
+    Alert.alert('Regarder une publicité', 'Débloquer sans pub pendant 30 minutes ?', [
       { text: 'Annuler', style: 'cancel' },
-      { text: 'Regarder', onPress: unlockAds },
+      {
+        text: 'Regarder',
+        onPress: async () => {
+          const result = await watchAdAndUnlock('adFree');
+          if (result !== 'rewarded') {
+            Alert.alert('Info', 'La pub n\'est pas prête. Réessayez ou passez Premium.');
+          }
+        },
+      },
     ]);
+  };
+
+  const handleAdvancedUnlock = () => {
+    Alert.alert('Options avancées', 'Débloquer les options avancées pour 30 minutes via pub ?', [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Regarder',
+        onPress: async () => {
+          const result = await watchAdAndUnlock('advancedOptions');
+          if (result !== 'rewarded') {
+            Alert.alert('Info', 'La pub n\'est pas prête. Passez Premium pour accès immédiat.');
+          }
+        },
+      },
+      { text: 'Premium', onPress: () => openPaywall('feature-lock') },
+    ]);
+  };
+
+  const handleAdvancedModeChange = (enabled: boolean) => {
+    if (enabled && !advancedGate.allowed) {
+      openPaywall('feature-lock');
+      return;
+    }
+    setSalaryMode(enabled ? 'advanced' : 'simple');
   };
 
   const handleRate = () => {
@@ -145,6 +187,34 @@ export function SettingsScreen() {
           </View>
         </SettingsSection>
 
+        <SettingsSection title="Monétisation">
+          <AppSwitchRow
+            label="Banner haut (A/B)"
+            description="Activer un second banner sur l'écran principal"
+            value={showTopHomeBanner}
+            onValueChange={setShowTopHomeBanner}
+          />
+          <View style={styles.buttonGroup}>
+            <AppSwitchRow
+              label="Mode avancé"
+              description="Débloqué via Premium ou pub récompensée"
+              value={salaryMode === 'advanced'}
+              onValueChange={handleAdvancedModeChange}
+            />
+            <GradientButton
+              title={advancedGate.allowed ? 'Options avancées débloquées' : 'Débloquer options avancées (pub)'}
+              onPress={handleAdvancedUnlock}
+              compact
+              variant="secondary"
+            />
+            <GradientButton
+              title="Ouvrir paywall"
+              onPress={() => openPaywall('manual')}
+              compact
+            />
+          </View>
+        </SettingsSection>
+
         <SettingsSection title="Données">
           <View style={styles.buttonGroup}>
             <GradientButton title="Effacer l'historique" onPress={handleClearHistory} variant="danger" compact />
@@ -169,6 +239,18 @@ export function SettingsScreen() {
           <Text style={[styles.footerTagline, { color: theme.textMuted }]}>{APP_TAGLINE}</Text>
         </View>
       </ScrollView>
+      <PaywallModal
+        visible={paywallVisible}
+        onClose={closePaywall}
+        onUpgrade={() => {
+          unlockPremium();
+          closePaywall();
+        }}
+        onWatchAd={async () => {
+          await watchAdAndUnlock('adFree');
+          closePaywall();
+        }}
+      />
     </SafeAreaView>
   );
 }

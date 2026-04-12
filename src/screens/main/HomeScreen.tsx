@@ -25,6 +25,15 @@ import { getSmartSuggestion } from '../../features/salary/getSmartSuggestion';
 import { useHistory, type SortMode } from '../../features/history/useHistory';
 import { APP_NAME, LABELS } from '../../constants/appName';
 import type { SalaryResults } from '../../types';
+import { AdBanner } from '../../components/AdBanner';
+import { PaywallModal } from '../../components/PaywallModal';
+import { useInterstitialAd } from '../../features/ads/useInterstitialAd';
+import { useRewardedAd } from '../../features/ads/useRewardedAd';
+import { useUIStore } from '../../store/uiStore';
+import { usePremiumStore } from '../../store/premiumStore';
+import { getFeatureGate } from '../../features/premium/useFeatureGate';
+import { convertCurrency, getCurrencySymbolByCode } from '../../utils/currency';
+import { closePaywall, openPaywall } from '../../features/premium/paywall';
 
 export function HomeScreen() {
   const { theme } = useTheme();
@@ -37,6 +46,8 @@ export function HomeScreen() {
   const taxRate = useSalaryStore((s) => s.taxRate);
   const pasEnabled = useSalaryStore((s) => s.pasEnabled);
   const pasRate = useSalaryStore((s) => s.pasRate);
+  const displayCurrency = useSalaryStore((s) => s.displayCurrency);
+  const setDisplayCurrency = useSalaryStore((s) => s.setDisplayCurrency);
   const setInputValue = useSalaryStore((s) => s.setInputValue);
   const setInputType = useSalaryStore((s) => s.setInputType);
   const setPeriod = useSalaryStore((s) => s.setPeriod);
@@ -49,6 +60,8 @@ export function HomeScreen() {
 
   const countryData = getCountryByCode(country);
   const symbol = countryData?.currencySymbol ?? '€';
+  const countryCurrency = countryData?.currency ?? 'EUR';
+  const displaySymbol = getCurrencySymbolByCode(displayCurrency);
   const smicValue = getSmicForCountry(country);
 
   const scrollRef = useRef<ScrollView>(null);
@@ -61,8 +74,30 @@ export function HomeScreen() {
   const [editingField, setEditingField] = useState<keyof SalaryResults | null>(null);
   const [editBuffer, setEditBuffer] = useState('');
   const [historySortMode, setHistorySortMode] = useState<SortMode>('date');
+  const [multiCurrencyError, setMultiCurrencyError] = useState<string | null>(null);
 
   const { items: historyItems, remove: removeHistory, load: loadHistory, toggleFavorite } = useHistory(historySortMode);
+  const showTopHomeBanner = useUIStore((s) => s.showTopHomeBanner);
+  const hasSeenPaywall = useUIStore((s) => s.hasSeenPaywall);
+  const setHasSeenPaywall = useUIStore((s) => s.setHasSeenPaywall);
+  const paywallVisible = useUIStore((s) => s.paywallVisible);
+  const paywallReason = useUIStore((s) => s.paywallReason);
+  const hasTriggeredFirstValueFlow = useUIStore((s) => s.hasTriggeredFirstValueFlow);
+  const setFirstValueFlowTriggered = useUIStore((s) => s.setFirstValueFlowTriggered);
+  const setPremium = usePremiumStore((s) => s.setPremium);
+  const isPremium = usePremiumStore((s) => s.isPremium);
+  const isHistoryRewardedUnlocked = usePremiumStore((s) => s.isFeatureUnlocked('history'));
+  const { tryShowFirstValueInterstitial, trackActionAndMaybeShowInterstitial } = useInterstitialAd();
+  const { watchAdAndUnlock } = useRewardedAd();
+
+  const displayGrossMonthly = useMemo(
+    () => convertCurrency(results.grossMonthly, countryCurrency, displayCurrency),
+    [results.grossMonthly, countryCurrency, displayCurrency]
+  );
+  const displayNetMonthly = useMemo(
+    () => convertCurrency(results.netMonthly, countryCurrency, displayCurrency),
+    [results.netMonthly, countryCurrency, displayCurrency]
+  );
 
   const suggestion = useMemo(
     () => getSmartSuggestion(results.netMonthly, results.grossMonthly, country),
@@ -159,15 +194,89 @@ export function HomeScreen() {
 
   const handleShare = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    void trackActionAndMaybeShowInterstitial();
     try { await Share.share({ message: shareText }); } catch (_) {}
   };
 
+  const historyGate = getFeatureGate('history');
+  const visibleHistoryItems = useMemo(
+    () => historyItems.slice(0, isPremium || isHistoryRewardedUnlocked ? 8 : 3),
+    [historyItems, isHistoryRewardedUnlocked, isPremium]
+  );
+
   const handleAutoSave = useCallback(() => {
     if (parseSalaryInput(inputValue) > 0) {
+      const gate = getFeatureGate('history');
+      if (!gate.allowed) {
+        openPaywall('feature-lock');
+        return;
+      }
       saveSimulation('');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      void trackActionAndMaybeShowInterstitial();
     }
-  }, [inputValue, saveSimulation]);
+  }, [inputValue, saveSimulation, trackActionAndMaybeShowInterstitial]);
+
+  useEffect(() => {
+    if (results.grossMonthly <= 0) return;
+    if (hasTriggeredFirstValueFlow) return;
+    setFirstValueFlowTriggered(true);
+    void (async () => {
+      await tryShowFirstValueInterstitial();
+      if (!hasSeenPaywall) {
+        openPaywall('first-session');
+        setHasSeenPaywall(true);
+      }
+    })();
+  }, [
+    hasSeenPaywall,
+    hasTriggeredFirstValueFlow,
+    results.grossMonthly,
+    setFirstValueFlowTriggered,
+    setHasSeenPaywall,
+    tryShowFirstValueInterstitial,
+  ]);
+
+  const handleUpgrade = useCallback(() => {
+    setPremium(true);
+    closePaywall();
+  }, [setPremium]);
+
+  const handleWatchAdUnlock = useCallback(async () => {
+    if (paywallReason === 'feature-lock') {
+      await watchAdAndUnlock('history');
+    } else {
+      await watchAdAndUnlock('adFree');
+    }
+    closePaywall();
+  }, [paywallReason, watchAdAndUnlock]);
+
+  const handleOpenPaywall = useCallback(
+    (reason: 'first-session' | 'feature-lock' | 'manual') => {
+      void trackActionAndMaybeShowInterstitial();
+      openPaywall(reason);
+    },
+    [trackActionAndMaybeShowInterstitial]
+  );
+
+  const handleDisplayCurrencyChange = useCallback(
+    (index: number) => {
+      const target = (['EUR', 'USD', 'GBP'] as const)[index];
+      if (target === displayCurrency) return;
+      if (target !== countryCurrency) {
+        const gate = getFeatureGate('multiCurrency');
+        if (!gate.allowed) {
+          setMultiCurrencyError(gate.reason);
+          openPaywall('feature-lock');
+          return;
+        }
+      }
+      setMultiCurrencyError(null);
+      setDisplayCurrency(target);
+      void trackActionAndMaybeShowInterstitial();
+    },
+    [countryCurrency, displayCurrency, setDisplayCurrency, trackActionAndMaybeShowInterstitial]
+  );
 
   const periodIndex = period === 'monthly' ? 0 : period === 'yearly' ? 1 : 2;
 
@@ -179,6 +288,7 @@ export function HomeScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       <View style={styles.flex}>
         <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+          {showTopHomeBanner ? <AdBanner topSpacing={2} /> : null}
           <View style={styles.headerRow}>
             <View style={styles.headerLeft}>
               <Text style={[styles.appTitle, { color: theme.text }]}>{APP_NAME}</Text>
@@ -196,19 +306,34 @@ export function HomeScreen() {
               <PressableScale onPress={handleAutoSave}>
                 <Text style={styles.headerIcon}>💾</Text>
               </PressableScale>
+              <PressableScale onPress={() => handleOpenPaywall('manual')}>
+                <Text style={styles.headerIcon}>💎</Text>
+              </PressableScale>
             </View>
           </View>
 
           <View style={styles.summaryRow}>
             <AppCard style={styles.summaryCard}>
               <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>{LABELS.grossMonthly}</Text>
-              <AnimatedNumber value={results.grossMonthly} symbol={symbol} style={[styles.summaryValue, { color: theme.text }]} />
+              <AnimatedNumber value={displayGrossMonthly} symbol={displaySymbol} style={[styles.summaryValue, { color: theme.text }]} />
             </AppCard>
             <AppCard style={styles.summaryCard}>
               <Text style={[styles.summaryLabel, { color: theme.primary }]}>{LABELS.netMonthly}</Text>
-              <AnimatedNumber value={results.netMonthly} symbol={symbol} style={[styles.summaryValue, { color: theme.primary }]} />
+              <AnimatedNumber value={displayNetMonthly} symbol={displaySymbol} style={[styles.summaryValue, { color: theme.primary }]} />
             </AppCard>
           </View>
+
+          <AppCard>
+            <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Affichage devise</Text>
+            <SegmentedControl
+              values={['EUR', 'USD', 'GBP']}
+              selectedIndex={Math.max(0, (['EUR', 'USD', 'GBP'] as const).indexOf(displayCurrency as 'EUR' | 'USD' | 'GBP'))}
+              onChange={handleDisplayCurrencyChange}
+            />
+            {multiCurrencyError ? (
+              <Text style={[styles.lockHint, { color: theme.warning }]}>{multiCurrencyError}</Text>
+            ) : null}
+          </AppCard>
 
           {results.grossMonthly > 0 && (
             <AppCard>
@@ -279,7 +404,7 @@ export function HomeScreen() {
             {historyItems.length === 0 ? (
               <EmptyState icon="📋" title={LABELS.emptyHistory} message={LABELS.emptyHistoryMsg} />
             ) : (
-              historyItems.slice(0, 8).map((item) => (
+              visibleHistoryItems.map((item) => (
                 <HistoryItemRow
                   key={item.id}
                   item={item}
@@ -290,6 +415,11 @@ export function HomeScreen() {
                 />
               ))
             )}
+            {!historyGate.allowed ? (
+              <Text style={[styles.lockHint, { color: theme.warning }]}>
+                Limite gratuite atteinte (3). Regarde une pub ou passe Premium.
+              </Text>
+            ) : null}
           </AppCard>
 
           <View style={styles.bottomPad} />
@@ -307,6 +437,7 @@ export function HomeScreen() {
           onSmicPress={handleSmicPress}
           currencySymbol={symbol}
         />
+        <AdBanner topSpacing={6} />
       </View>
 
       <SalaryBreakdownModal
@@ -317,6 +448,12 @@ export function HomeScreen() {
         pasEnabled={pasEnabled}
         pasRate={pasRate}
         symbol={symbol}
+      />
+      <PaywallModal
+        visible={paywallVisible}
+        onClose={closePaywall}
+        onUpgrade={handleUpgrade}
+        onWatchAd={handleWatchAdUnlock}
       />
     </SafeAreaView>
   );
@@ -343,6 +480,7 @@ const styles = StyleSheet.create({
   suggestionFlag: { fontSize: 24, textAlign: 'center' },
   suggestionCountry: { fontSize: 14, fontWeight: '700', textAlign: 'center', marginTop: 2 },
   suggestionDiff: { fontSize: 16, fontWeight: '800', textAlign: 'center', marginTop: 2 },
+  lockHint: { fontSize: 12, marginTop: 8, fontWeight: '600' },
   controlsRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
   controlHalf: { flex: 1 },
   inputInner: { padding: 12 },
