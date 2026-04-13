@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.romainrun.salaire",
+      "bundleIdentifier": "com.kns.salaire",
       "infoPlist": {
         "GADApplicationIdentifier": "ca-app-pub-3137130387262789~7100960852",
         "NSUserTrackingUsageDescription": "Cette autorisation permet d'afficher des offres plus pertinentes."
@@ -31,7 +31,7 @@
         "backgroundColor": "#0F0F14"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.romainrun.salaire",
+      "package": "com.kns.salaire",
       "versionCode": 2604122012
     },
     "web": {
