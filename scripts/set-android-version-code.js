@@ -2,13 +2,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 function getTimestampVersionCode() {
-  const now = new Date();
-  const yy = String(now.getUTCFullYear() % 100).padStart(2, '0');
-  const MM = String(now.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(now.getUTCDate()).padStart(2, '0');
-  const HH = String(now.getUTCHours()).padStart(2, '0');
-  const mm = String(now.getUTCMinutes()).padStart(2, '0');
-  return Number(`${yy}${MM}${dd}${HH}${mm}`);
+  // Android versionCode must be <= 2100000000 and strictly increasing.
+  // Keep a timestamp-based code with second precision:
+  // 1_000_000_000 + seconds elapsed since 2024-01-01 UTC.
+  const BASE_EPOCH_SECONDS = Date.UTC(2024, 0, 1, 0, 0, 0) / 1000;
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  return 1_000_000_000 + (nowSeconds - BASE_EPOCH_SECONDS);
 }
 
 function main() {
