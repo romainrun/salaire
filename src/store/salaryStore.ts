@@ -9,7 +9,7 @@ import { usePremiumStore } from './premiumStore';
 
 const MAX_HISTORY = 20;
 const MAX_RECENT_VALUES = 5;
-const FREE_HISTORY_LIMIT = 3;
+const FREE_HISTORY_LIMIT = 1;
 
 interface SalaryState {
   inputValue: string;

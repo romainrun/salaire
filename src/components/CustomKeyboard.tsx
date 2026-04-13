@@ -11,6 +11,7 @@ const ANIM_DURATION = 250;
 interface CustomKeyboardProps {
   visible: boolean;
   onClose: () => void;
+  onSubmit?: () => void;
   onKeyPress: (key: string) => void;
   onDelete: () => void;
   recentValues?: number[];
@@ -54,6 +55,7 @@ function KeyButton({
 export const CustomKeyboard = React.memo(function CustomKeyboard({
   visible,
   onClose,
+  onSubmit,
   onKeyPress,
   onDelete,
   recentValues = [],
@@ -219,6 +221,18 @@ export const CustomKeyboard = React.memo(function CustomKeyboard({
             </View>
           ))}
         </View>
+        <View style={styles.submitRow}>
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              onSubmit?.();
+            }}
+            activeOpacity={0.8}
+            style={[styles.submitBtn, { backgroundColor: theme.primary }]}
+          >
+            <Text style={styles.submitText}>Valider</Text>
+          </TouchableOpacity>
+        </View>
       </Animated.View>
     </>
   );
@@ -250,4 +264,7 @@ const styles = StyleSheet.create({
   keyRow: { flexDirection: 'row', gap: 6 },
   key: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 10 },
   keyText: { fontSize: 22, fontWeight: '700' },
+  submitRow: { paddingHorizontal: 12, paddingTop: 8 },
+  submitBtn: { alignItems: 'center', justifyContent: 'center', borderRadius: 10, paddingVertical: 12 },
+  submitText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
 });

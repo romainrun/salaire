@@ -38,6 +38,8 @@ export function SettingsScreen() {
   const setRatePromptSeen = useUIStore((s) => s.setRatePromptSeen);
   const showTopHomeBanner = useUIStore((s) => s.showTopHomeBanner);
   const setShowTopHomeBanner = useUIStore((s) => s.setShowTopHomeBanner);
+  const displayCurrency = useSalaryStore((s) => s.displayCurrency);
+  const setDisplayCurrency = useSalaryStore((s) => s.setDisplayCurrency);
 
   const onboarding = useOnboardingStore();
   const clearHistory = useSalaryStore((s) => s.clearHistory);
@@ -55,6 +57,10 @@ export function SettingsScreen() {
   const themeIndex = themeOptions.indexOf(uiTheme);
 
   const handleThemeChange = (index: number) => setTheme(themeOptions[index]);
+  const handleCurrencyChange = (index: number) => {
+    const next = (['EUR', 'USD', 'GBP'] as const)[index];
+    setDisplayCurrency(next);
+  };
   const handleCountrySelect = (c: Country) => onboarding.setCountry(c.code, c.currency);
 
   const handleClearHistory = () => {
@@ -137,6 +143,14 @@ export function SettingsScreen() {
 
         <SettingsSection title="Thème">
           <SegmentedControl values={themeLabels} selectedIndex={themeIndex >= 0 ? themeIndex : 0} onChange={handleThemeChange} />
+        </SettingsSection>
+
+        <SettingsSection title="Affichage devise">
+          <SegmentedControl
+            values={['EUR', 'USD', 'GBP']}
+            selectedIndex={Math.max(0, (['EUR', 'USD', 'GBP'] as const).indexOf(displayCurrency as 'EUR' | 'USD' | 'GBP'))}
+            onChange={handleCurrencyChange}
+          />
         </SettingsSection>
 
         <SettingsSection title="Publicité">

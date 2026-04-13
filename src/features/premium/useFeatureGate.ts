@@ -10,7 +10,7 @@ export interface FeatureGateResult {
   requiresAd: boolean;
 }
 
-const FREE_HISTORY_LIMIT = 3;
+const FREE_HISTORY_LIMIT = 1;
 const FREE_COMPARISON_LIMIT = 1;
 
 function evaluateGate(key: FeatureGateKey): FeatureGateResult {

@@ -100,6 +100,7 @@ export function QuickModeScreen({ onClose }: QuickModeProps) {
       <CustomKeyboard
         visible={true}
         onClose={onClose}
+        onSubmit={onClose}
         onKeyPress={handleKeyPress}
         onDelete={handleDelete}
         currencySymbol={symbol}

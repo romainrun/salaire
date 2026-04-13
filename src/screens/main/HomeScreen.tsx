@@ -1,5 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Share, BackHandler, Animated } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  Share,
+  BackHandler,
+  Animated,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../features/theme/ThemeProvider';
@@ -32,7 +41,6 @@ import { useRewardedAd } from '../../features/ads/useRewardedAd';
 import { useUIStore } from '../../store/uiStore';
 import { usePremiumStore } from '../../store/premiumStore';
 import { getFeatureGate } from '../../features/premium/useFeatureGate';
-import { convertCurrency, getCurrencySymbolByCode } from '../../utils/currency';
 
 export function HomeScreen() {
   const { theme } = useTheme();
@@ -45,8 +53,6 @@ export function HomeScreen() {
   const taxRate = useSalaryStore((s) => s.taxRate);
   const pasEnabled = useSalaryStore((s) => s.pasEnabled);
   const pasRate = useSalaryStore((s) => s.pasRate);
-  const displayCurrency = useSalaryStore((s) => s.displayCurrency);
-  const setDisplayCurrency = useSalaryStore((s) => s.setDisplayCurrency);
   const setInputValue = useSalaryStore((s) => s.setInputValue);
   const setInputType = useSalaryStore((s) => s.setInputType);
   const setPeriod = useSalaryStore((s) => s.setPeriod);
@@ -59,8 +65,6 @@ export function HomeScreen() {
 
   const countryData = getCountryByCode(country);
   const symbol = countryData?.currencySymbol ?? '€';
-  const countryCurrency = countryData?.currency ?? 'EUR';
-  const displaySymbol = getCurrencySymbolByCode(displayCurrency);
   const smicValue = getSmicForCountry(country);
 
   const scrollRef = useRef<ScrollView>(null);
@@ -73,12 +77,16 @@ export function HomeScreen() {
   const [editingField, setEditingField] = useState<keyof SalaryResults | null>(null);
   const [editBuffer, setEditBuffer] = useState('');
   const [historySortMode, setHistorySortMode] = useState<SortMode>('date');
-  const [multiCurrencyError, setMultiCurrencyError] = useState<string | null>(null);
   const [unlockModalVisible, setUnlockModalVisible] = useState(false);
-  const [unlockTarget, setUnlockTarget] = useState<'history' | 'multiCurrency' | 'adFree'>('adFree');
+  const [unlockTarget, setUnlockTarget] = useState<'history' | 'adFree'>('adFree');
   const [hasTriggeredFirstValueAd, setHasTriggeredFirstValueAd] = useState(false);
 
-  const { items: historyItems, remove: removeHistory, load: loadHistory, toggleFavorite } = useHistory(historySortMode);
+  const {
+    items: historyItems,
+    remove: removeHistory,
+    load: loadHistory,
+    toggleFavorite,
+  } = useHistory(historySortMode);
   const showTopHomeBanner = useUIStore((s) => s.showTopHomeBanner);
   const setIsUserTyping = useUIStore((s) => s.setIsUserTyping);
   const isHistoryRewardedUnlocked = usePremiumStore((s) => s.isFeatureUnlocked('history'));
@@ -89,15 +97,6 @@ export function HomeScreen() {
   useEffect(() => {
     setIsUserTyping(keyboardVisible);
   }, [keyboardVisible, setIsUserTyping]);
-
-  const displayGrossMonthly = useMemo(
-    () => convertCurrency(results.grossMonthly, countryCurrency, displayCurrency),
-    [results.grossMonthly, countryCurrency, displayCurrency]
-  );
-  const displayNetMonthly = useMemo(
-    () => convertCurrency(results.netMonthly, countryCurrency, displayCurrency),
-    [results.netMonthly, countryCurrency, displayCurrency]
-  );
 
   const suggestion = useMemo(
     () => getSmartSuggestion(results.netMonthly, results.grossMonthly, country),
@@ -220,11 +219,11 @@ export function HomeScreen() {
 
   const historyGate = getFeatureGate('history');
   const visibleHistoryItems = useMemo(
-    () => historyItems.slice(0, isHistoryRewardedUnlocked ? 8 : 3),
+    () => historyItems.slice(0, isHistoryRewardedUnlocked ? 8 : 1),
     [historyItems, isHistoryRewardedUnlocked]
   );
 
-  const openUnlockModal = useCallback((target: 'history' | 'multiCurrency' | 'adFree') => {
+  const openUnlockModal = useCallback((target: 'history' | 'adFree') => {
     setUnlockTarget(target);
     setUnlockModalVisible(true);
   }, []);
@@ -252,7 +251,6 @@ export function HomeScreen() {
     const result = unlockTarget === 'adFree' ? await unlockAdFree() : await unlockFeature(unlockTarget);
     if (result === 'rewarded') {
       setUnlockModalVisible(false);
-      setMultiCurrencyError(null);
     }
   }, [unlockAdFree, unlockFeature, unlockTarget]);
 
@@ -260,28 +258,8 @@ export function HomeScreen() {
     const result = await unlockAdFree();
     if (result === 'rewarded') {
       setUnlockModalVisible(false);
-      setMultiCurrencyError(null);
     }
   }, [unlockAdFree]);
-
-  const handleDisplayCurrencyChange = useCallback(
-    (index: number) => {
-      const target = (['EUR', 'USD', 'GBP'] as const)[index];
-      if (target === displayCurrency) return;
-      if (target !== countryCurrency) {
-        const gate = getFeatureGate('multiCurrency');
-        if (!gate.allowed) {
-          setMultiCurrencyError('Limite atteinte. Débloquer avec une publicité.');
-          openUnlockModal('multiCurrency');
-          return;
-        }
-      }
-      setMultiCurrencyError(null);
-      setDisplayCurrency(target);
-      void trackActionAndMaybeShowInterstitial();
-    },
-    [countryCurrency, displayCurrency, openUnlockModal, setDisplayCurrency, trackActionAndMaybeShowInterstitial]
-  );
 
   const periodIndex = period === 'monthly' ? 0 : period === 'yearly' ? 1 : 2;
 
@@ -325,25 +303,21 @@ export function HomeScreen() {
           <View style={styles.summaryRow}>
             <AppCard style={styles.summaryCard}>
               <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>{LABELS.grossMonthly}</Text>
-              <AnimatedNumber value={displayGrossMonthly} symbol={displaySymbol} style={[styles.summaryValue, { color: theme.text }]} />
+              <AnimatedNumber
+                value={results.grossMonthly}
+                symbol={symbol}
+                style={[styles.summaryValue, { color: theme.text }]}
+              />
             </AppCard>
             <AppCard style={styles.summaryCard}>
               <Text style={[styles.summaryLabel, { color: theme.primary }]}>{LABELS.netMonthly}</Text>
-              <AnimatedNumber value={displayNetMonthly} symbol={displaySymbol} style={[styles.summaryValue, { color: theme.primary }]} />
+              <AnimatedNumber
+                value={results.netMonthly}
+                symbol={symbol}
+                style={[styles.summaryValue, { color: theme.primary }]}
+              />
             </AppCard>
           </View>
-
-          <AppCard>
-            <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Affichage devise</Text>
-            <SegmentedControl
-              values={['EUR', 'USD', 'GBP']}
-              selectedIndex={Math.max(0, (['EUR', 'USD', 'GBP'] as const).indexOf(displayCurrency as 'EUR' | 'USD' | 'GBP'))}
-              onChange={handleDisplayCurrencyChange}
-            />
-            {multiCurrencyError ? (
-              <Text style={[styles.lockHint, { color: theme.warning }]}>{multiCurrencyError}</Text>
-            ) : null}
-          </AppCard>
 
           {results.grossMonthly > 0 && (
             <AppCard>
@@ -374,12 +348,18 @@ export function HomeScreen() {
           )}
 
           <View style={styles.controlsRow}>
-            <View style={styles.controlHalf}>
-              <SegmentedControl values={[LABELS.gross, LABELS.net]} selectedIndex={inputType === 'gross' ? 0 : 1} onChange={handleTypeChange} />
-            </View>
-            <View style={styles.controlHalf}>
-              <SegmentedControl values={[LABELS.monthly, LABELS.yearly, LABELS.daily]} selectedIndex={periodIndex} onChange={handlePeriodChange} />
-            </View>
+            <SegmentedControl
+              values={[LABELS.gross, LABELS.net]}
+              selectedIndex={inputType === 'gross' ? 0 : 1}
+              onChange={handleTypeChange}
+            />
+          </View>
+          <View style={styles.controlsRow}>
+            <SegmentedControl
+              values={[LABELS.monthly, LABELS.yearly, LABELS.daily]}
+              selectedIndex={periodIndex}
+              onChange={handlePeriodChange}
+            />
           </View>
 
           <View
@@ -391,8 +371,9 @@ export function HomeScreen() {
               <EditableFieldWrapper isActive={activeField === 'input'}>
                 <View style={styles.inputInner}>
                   <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>
-                    {inputType === 'gross' ? LABELS.gross : LABELS.net}{' '}
-                    {period === 'monthly' ? LABELS.monthlyFull : period === 'yearly' ? LABELS.yearlyFull : LABELS.dailyFull}
+                    {`Objectif ${inputType === 'gross' ? 'brut' : 'net'} ${
+                      period === 'monthly' ? 'mensuel' : period === 'yearly' ? 'annuel' : 'journalier'
+                    }`}
                   </Text>
                   <Text style={[styles.inputDisplay, { color: theme.text }]}>
                     {inputValue || '0'} {symbol}
@@ -441,7 +422,7 @@ export function HomeScreen() {
             )}
             {!historyGate.allowed ? (
               <Text style={[styles.lockHint, { color: theme.warning }]}>
-                Limite atteinte. Débloquer avec une publicité.
+                Limite atteinte (1 simulation). Débloquer avec une publicité.
               </Text>
             ) : null}
           </AppCard>
@@ -452,6 +433,7 @@ export function HomeScreen() {
         <CustomKeyboard
           visible={keyboardVisible}
           onClose={closeKeyboard}
+          onSubmit={closeKeyboard}
           onKeyPress={handleKeyPress}
           onDelete={handleDelete}
           recentValues={recentValues}
@@ -511,8 +493,7 @@ const styles = StyleSheet.create({
   suggestionCountry: { fontSize: 14, fontWeight: '700', textAlign: 'center', marginTop: 2 },
   suggestionDiff: { fontSize: 16, fontWeight: '800', textAlign: 'center', marginTop: 2 },
   lockHint: { fontSize: 12, marginTop: 8, fontWeight: '600' },
-  controlsRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
-  controlHalf: { flex: 1 },
+  controlsRow: { width: '100%', marginBottom: 8 },
   inputInner: { padding: 12 },
   inputLabel: { fontSize: 11, fontWeight: '500', marginBottom: 2 },
   inputDisplay: { fontSize: 22, fontWeight: '800' },
