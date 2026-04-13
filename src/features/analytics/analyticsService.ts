@@ -1,3 +1,6 @@
+import { NativeModules, Platform } from 'react-native';
+import Constants from 'expo-constants';
+
 type RawAnalyticsValue = string | number | boolean | null | undefined;
 type RawAnalyticsParams = Record<string, RawAnalyticsValue>;
 type AnalyticsParamValue = string | number;
@@ -8,6 +11,18 @@ interface AnalyticsModule {
 
 const MAX_EVENT_NAME_LENGTH = 40;
 const MAX_PARAM_KEY_LENGTH = 40;
+
+function isExpoGoRuntime(): boolean {
+  return (
+    (Constants as { appOwnership?: string }).appOwnership === 'expo' ||
+    (Constants as { executionEnvironment?: string }).executionEnvironment === 'storeClient'
+  );
+}
+
+function hasFirebaseNativeModules(): boolean {
+  const modules = NativeModules as Record<string, unknown>;
+  return Boolean(modules.RNFBAppModule && modules.RNFBAnalyticsModule);
+}
 
 function normalizeEventName(name: string): string {
   const normalized = name.replace(/[^a-zA-Z0-9_]/g, '_');
@@ -43,6 +58,10 @@ class FirebaseAnalyticsService {
     if (this.initPromise) return this.initPromise;
     this.initPromise = (async () => {
       try {
+        if (Platform.OS === 'web' || isExpoGoRuntime() || !hasFirebaseNativeModules()) {
+          this.module = null;
+          return;
+        }
         // Lazy load avoids crashes if native module is unavailable in some builds.
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const analyticsFactory = require('@react-native-firebase/analytics').default as () => AnalyticsModule;
