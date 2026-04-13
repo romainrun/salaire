@@ -17,14 +17,11 @@ interface UIState {
   actionCount: number;
   sessionAdCount: number;
   lastAdTimestamp: number | null;
-  hasSeenPaywall: boolean;
-  paywallVisible: boolean;
-  paywallReason: 'first-session' | 'feature-lock' | 'manual';
   comparisonUsageCount: number;
-  hasTriggeredFirstValueFlow: boolean;
   dailyAdCount: number;
   dailyAdDate: string;
   showTopHomeBanner: boolean;
+  isUserTyping: boolean;
 
   setTheme: (theme: ThemeMode) => void;
   setNotificationsEnabled: (enabled: boolean) => void;
@@ -34,14 +31,9 @@ interface UIState {
   setMode: (mode: SalaryMode) => void;
   incrementActionCount: () => void;
   registerInterstitialShown: () => void;
-  setHasSeenPaywall: (seen: boolean) => void;
-  setPaywallState: (patch: {
-    visible?: boolean;
-    reason?: 'first-session' | 'feature-lock' | 'manual';
-  }) => void;
   incrementComparisonUsage: () => void;
-  setFirstValueFlowTriggered: (value: boolean) => void;
   setShowTopHomeBanner: (value: boolean) => void;
+  setIsUserTyping: (value: boolean) => void;
   resetComparisonUsage: () => void;
   startSession: () => void;
   resetUI: () => void;
@@ -59,14 +51,11 @@ export const useUIStore = create<UIState>()(
       actionCount: 0,
       sessionAdCount: 0,
       lastAdTimestamp: null,
-      hasSeenPaywall: false,
-      paywallVisible: false,
-      paywallReason: 'first-session',
       comparisonUsageCount: 0,
-      hasTriggeredFirstValueFlow: false,
       dailyAdCount: 0,
       dailyAdDate: getDayKey(),
       showTopHomeBanner: false,
+      isUserTyping: false,
 
       setTheme: (theme) => set({ theme }),
       setNotificationsEnabled: (enabled) =>
@@ -89,27 +78,17 @@ export const useUIStore = create<UIState>()(
             lastAdTimestamp: Date.now(),
           };
         }),
-      setHasSeenPaywall: (seen) => set({ hasSeenPaywall: seen }),
-      setPaywallState: (patch) =>
-        set((state) => ({
-          paywallVisible: patch.visible ?? state.paywallVisible,
-          paywallReason: patch.reason ?? state.paywallReason,
-        })),
       incrementComparisonUsage: () =>
         set((state) => ({ comparisonUsageCount: state.comparisonUsageCount + 1 })),
-      setFirstValueFlowTriggered: (value) =>
-        set({ hasTriggeredFirstValueFlow: value }),
       setShowTopHomeBanner: (value) => set({ showTopHomeBanner: value }),
+      setIsUserTyping: (value) => set({ isUserTyping: value }),
       resetComparisonUsage: () => set({ comparisonUsageCount: 0 }),
       startSession: () =>
         set({
           actionCount: 0,
           sessionAdCount: 0,
-          hasSeenPaywall: false,
-          paywallVisible: false,
-          paywallReason: 'first-session',
           comparisonUsageCount: 0,
-          hasTriggeredFirstValueFlow: false,
+          isUserTyping: false,
         }),
       resetUI: () =>
         set({
@@ -122,14 +101,11 @@ export const useUIStore = create<UIState>()(
           actionCount: 0,
           sessionAdCount: 0,
           lastAdTimestamp: null,
-          hasSeenPaywall: false,
-          paywallVisible: false,
-          paywallReason: 'first-session',
           comparisonUsageCount: 0,
-          hasTriggeredFirstValueFlow: false,
           dailyAdCount: 0,
           dailyAdDate: getDayKey(),
           showTopHomeBanner: false,
+          isUserTyping: false,
         }),
     }),
     {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
@@ -16,8 +16,7 @@ import { APP_NAME, APP_TAGLINE, LABELS } from '../../constants/appName';
 import type { ThemeMode, Country } from '../../types';
 import { useRewardedAd } from '../../features/ads/useRewardedAd';
 import { useFeatureGate } from '../../features/premium/useFeatureGate';
-import { PaywallModal } from '../../components/PaywallModal';
-import { closePaywall, openPaywall } from '../../features/premium/paywall';
+import { AdUnlockModal } from '../../features/unlock/AdUnlockModal';
 
 function SettingsSection({ title, children }: { title: string; children: React.ReactNode }) {
   const { theme } = useTheme();
@@ -37,21 +36,19 @@ export function SettingsScreen() {
   const setNotificationsEnabled = useUIStore((s) => s.setNotificationsEnabled);
   const ratePromptSeen = useUIStore((s) => s.ratePromptSeen);
   const setRatePromptSeen = useUIStore((s) => s.setRatePromptSeen);
+  const showTopHomeBanner = useUIStore((s) => s.showTopHomeBanner);
+  const setShowTopHomeBanner = useUIStore((s) => s.setShowTopHomeBanner);
 
   const onboarding = useOnboardingStore();
   const clearHistory = useSalaryStore((s) => s.clearHistory);
   const resetSalaryData = useSalaryStore((s) => s.reset);
+  const resetUnlocks = usePremiumStore((s) => s.resetUnlocks);
 
-  const isPremium = usePremiumStore((s) => s.isPremium);
-  const unlockPremium = usePremiumStore((s) => s.unlockPremium);
-  const resetPremium = usePremiumStore((s) => s.resetPremium);
-  const showTopHomeBanner = useUIStore((s) => s.showTopHomeBanner);
-  const setShowTopHomeBanner = useUIStore((s) => s.setShowTopHomeBanner);
-  const paywallVisible = useUIStore((s) => s.paywallVisible);
-  const { watchAdAndUnlock } = useRewardedAd();
+  const { unlockAdFree, unlockFeature } = useRewardedAd();
   const advancedGate = useFeatureGate('advancedOptions');
   const salaryMode = useSalaryStore((s) => s.mode);
   const setSalaryMode = useSalaryStore((s) => s.setMode);
+  const [unlockAdvancedVisible, setUnlockAdvancedVisible] = useState(false);
 
   const themeOptions: ThemeMode[] = ['dark', 'light', 'system'];
   const themeLabels = ['Sombre', 'Clair', 'Système'];
@@ -75,52 +72,20 @@ export function SettingsScreen() {
         style: 'destructive',
         onPress: () => {
           resetSalaryData();
-          resetPremium();
+          resetUnlocks();
           onboarding.resetOnboarding();
         },
       },
     ]);
   };
 
-  const handlePremium = () => {
-    if (isPremium) {
-      Alert.alert('Premium', 'Vous avez déjà Premium !');
-    } else {
-      Alert.alert('Débloquer Premium', 'Activer Premium (achat unique 3,99€ simulé) ?', [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Débloquer', onPress: unlockPremium },
-      ]);
-    }
-  };
-
-  const handleWatchAd = () => {
-    Alert.alert('Regarder une publicité', 'Débloquer sans pub pendant 30 minutes ?', [
-      { text: 'Annuler', style: 'cancel' },
-      {
-        text: 'Regarder',
-        onPress: async () => {
-          await watchAdAndUnlock('adFree');
-        },
-      },
-    ]);
-  };
-
-  const handleAdvancedUnlock = () => {
-    Alert.alert('Options avancées', 'Débloquer les options avancées pour 30 minutes via pub ?', [
-      { text: 'Annuler', style: 'cancel' },
-      {
-        text: 'Regarder',
-        onPress: async () => {
-          await watchAdAndUnlock('advancedOptions');
-        },
-      },
-      { text: 'Premium', onPress: () => openPaywall('feature-lock') },
-    ]);
+  const handleRemoveAdsFor30Min = () => {
+    void unlockAdFree();
   };
 
   const handleAdvancedModeChange = (enabled: boolean) => {
     if (enabled && !advancedGate.allowed) {
-      openPaywall('feature-lock');
+      setUnlockAdvancedVisible(true);
       return;
     }
     setSalaryMode(enabled ? 'advanced' : 'simple');
@@ -174,10 +139,10 @@ export function SettingsScreen() {
           <SegmentedControl values={themeLabels} selectedIndex={themeIndex >= 0 ? themeIndex : 0} onChange={handleThemeChange} />
         </SettingsSection>
 
-        <SettingsSection title="Achats">
+        <SettingsSection title="Publicité">
           <View style={styles.buttonGroup}>
-            <GradientButton title={isPremium ? 'Premium activé ✓' : 'Débloquer Premium'} onPress={handlePremium} compact />
-            <GradientButton title="Soutenir (regarder pub)" onPress={handleWatchAd} variant="secondary" compact />
+            <GradientButton title="Supprimer les pubs (30 min)" onPress={handleRemoveAdsFor30Min} compact />
+            <GradientButton title="Regarder une publicité" onPress={handleRemoveAdsFor30Min} variant="secondary" compact />
           </View>
         </SettingsSection>
 
@@ -191,20 +156,15 @@ export function SettingsScreen() {
           <View style={styles.buttonGroup}>
             <AppSwitchRow
               label="Mode avancé"
-              description="Débloqué via Premium ou pub récompensée"
+              description="Débloquer avec une publicité"
               value={salaryMode === 'advanced'}
               onValueChange={handleAdvancedModeChange}
             />
             <GradientButton
-              title={advancedGate.allowed ? 'Options avancées débloquées' : 'Débloquer options avancées (pub)'}
-              onPress={handleAdvancedUnlock}
+              title={advancedGate.allowed ? 'Mode avancé débloqué' : 'Débloquer avec une pub'}
+              onPress={() => setUnlockAdvancedVisible(true)}
               compact
               variant="secondary"
-            />
-            <GradientButton
-              title="Ouvrir paywall"
-              onPress={() => openPaywall('manual')}
-              compact
             />
           </View>
         </SettingsSection>
@@ -233,13 +193,21 @@ export function SettingsScreen() {
           <Text style={[styles.footerTagline, { color: theme.textMuted }]}>{APP_TAGLINE}</Text>
         </View>
       </ScrollView>
-      <PaywallModal
-        visible={paywallVisible}
-        onClose={closePaywall}
+
+      <AdUnlockModal
+        visible={unlockAdvancedVisible}
+        onClose={() => setUnlockAdvancedVisible(false)}
         onWatchAd={async () => {
-          const result = await watchAdAndUnlock('adFree');
+          const result = await unlockFeature('advancedOptions');
           if (result === 'rewarded') {
-            closePaywall();
+            setUnlockAdvancedVisible(false);
+            setSalaryMode('advanced');
+          }
+        }}
+        onAdFree={async () => {
+          const result = await unlockAdFree();
+          if (result === 'rewarded') {
+            setUnlockAdvancedVisible(false);
           }
         }}
       />

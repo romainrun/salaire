@@ -14,6 +14,7 @@ import { getCountryByCode } from '../../data';
 import { LABELS } from '../../constants/appName';
 import { parseInputAmount, formatCurrency } from '../../utils/format';
 import { netToGross, monthlyToYearly } from '../../utils/salary';
+import { useInterstitialAd } from '../../features/ads/useInterstitialAd';
 
 export function TargetSalaryScreen() {
   const { theme } = useTheme();
@@ -22,6 +23,7 @@ export function TargetSalaryScreen() {
   const countryData = getCountryByCode(country);
   const symbol = countryData?.currencySymbol ?? '€';
   const taxRate = countryData?.taxRate ?? 0.23;
+  const { tryShowContextualInterstitial } = useInterstitialAd();
 
   const [targetInput, setTargetInput] = useState('');
   const [increasePercent, setIncreasePercent] = useState(0);
@@ -55,7 +57,12 @@ export function TargetSalaryScreen() {
       '',
       '🚀 Calculé avec l\'app Salaire',
     ].join('\n');
-    try { await Share.share({ message: text }); } catch (_) {}
+    try {
+      await Share.share({ message: text });
+    } catch (_) {}
+    if (effectiveTarget > 0) {
+      void tryShowContextualInterstitial();
+    }
   };
 
   return (
@@ -63,7 +70,15 @@ export function TargetSalaryScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <Text style={[styles.title, { color: theme.text }]}>{LABELS.target}</Text>
 
-        <AmountInput value={targetInput} onChangeText={(v) => { setTargetInput(v); setIncreasePercent(0); }} label="Net mensuel souhaité" symbol={symbol} />
+        <AmountInput
+          value={targetInput}
+          onChangeText={(v) => {
+            setTargetInput(v);
+            setIncreasePercent(0);
+          }}
+          label="Net mensuel souhaité"
+          symbol={symbol}
+        />
 
         {effectiveTarget <= 0 && (
           <EmptyState icon="🎯" title={LABELS.emptyTarget} message={LABELS.emptyTargetMsg} />
@@ -100,13 +115,15 @@ export function TargetSalaryScreen() {
                 <View style={styles.statItem}>
                   <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Diff./mois</Text>
                   <Text style={[styles.statValue, { color: diffMonthly >= 0 ? theme.success : theme.danger }]}>
-                    {diffMonthly >= 0 ? '+' : ''}{formatCurrency(diffMonthly, symbol)}
+                    {diffMonthly >= 0 ? '+' : ''}
+                    {formatCurrency(diffMonthly, symbol)}
                   </Text>
                 </View>
                 <View style={styles.statItem}>
                   <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Augmentation</Text>
                   <Text style={[styles.statValue, { color: percentIncrease >= 0 ? theme.success : theme.danger }]}>
-                    {percentIncrease >= 0 ? '+' : ''}{percentIncrease.toFixed(1)}%
+                    {percentIncrease >= 0 ? '+' : ''}
+                    {percentIncrease.toFixed(1)}%
                   </Text>
                 </View>
               </View>
@@ -114,7 +131,8 @@ export function TargetSalaryScreen() {
                 <View style={styles.statItem}>
                   <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Impact annuel</Text>
                   <Text style={[styles.statValue, { color: diffYearly >= 0 ? theme.success : theme.danger }]}>
-                    {diffYearly >= 0 ? '+' : ''}{formatCurrency(diffYearly, symbol)}
+                    {diffYearly >= 0 ? '+' : ''}
+                    {formatCurrency(diffYearly, symbol)}
                   </Text>
                 </View>
               </View>
@@ -136,7 +154,12 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { paddingHorizontal: 14, paddingTop: 8, paddingBottom: 30 },
   title: { fontSize: 22, fontWeight: '800', marginBottom: 12 },
-  sliderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  sliderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   sliderLabel: { fontSize: 12, fontWeight: '500' },
   sliderValue: { fontSize: 16, fontWeight: '800' },
   resultLabel: { fontSize: 12, fontWeight: '500', marginBottom: 2 },

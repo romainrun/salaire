@@ -26,14 +26,13 @@ import { useHistory, type SortMode } from '../../features/history/useHistory';
 import { APP_NAME, LABELS } from '../../constants/appName';
 import type { SalaryResults } from '../../types';
 import { AdBanner } from '../../components/AdBanner';
-import { PaywallModal } from '../../components/PaywallModal';
+import { AdUnlockModal } from '../../features/unlock/AdUnlockModal';
 import { useInterstitialAd } from '../../features/ads/useInterstitialAd';
 import { useRewardedAd } from '../../features/ads/useRewardedAd';
 import { useUIStore } from '../../store/uiStore';
 import { usePremiumStore } from '../../store/premiumStore';
 import { getFeatureGate } from '../../features/premium/useFeatureGate';
 import { convertCurrency, getCurrencySymbolByCode } from '../../utils/currency';
-import { closePaywall, openPaywall } from '../../features/premium/paywall';
 
 export function HomeScreen() {
   const { theme } = useTheme();
@@ -75,20 +74,21 @@ export function HomeScreen() {
   const [editBuffer, setEditBuffer] = useState('');
   const [historySortMode, setHistorySortMode] = useState<SortMode>('date');
   const [multiCurrencyError, setMultiCurrencyError] = useState<string | null>(null);
+  const [unlockModalVisible, setUnlockModalVisible] = useState(false);
+  const [unlockTarget, setUnlockTarget] = useState<'history' | 'multiCurrency' | 'adFree'>('adFree');
+  const [hasTriggeredFirstValueAd, setHasTriggeredFirstValueAd] = useState(false);
 
   const { items: historyItems, remove: removeHistory, load: loadHistory, toggleFavorite } = useHistory(historySortMode);
   const showTopHomeBanner = useUIStore((s) => s.showTopHomeBanner);
-  const hasSeenPaywall = useUIStore((s) => s.hasSeenPaywall);
-  const setHasSeenPaywall = useUIStore((s) => s.setHasSeenPaywall);
-  const paywallVisible = useUIStore((s) => s.paywallVisible);
-  const paywallReason = useUIStore((s) => s.paywallReason);
-  const hasTriggeredFirstValueFlow = useUIStore((s) => s.hasTriggeredFirstValueFlow);
-  const setFirstValueFlowTriggered = useUIStore((s) => s.setFirstValueFlowTriggered);
-  const setPremium = usePremiumStore((s) => s.setPremium);
-  const isPremium = usePremiumStore((s) => s.isPremium);
+  const setIsUserTyping = useUIStore((s) => s.setIsUserTyping);
   const isHistoryRewardedUnlocked = usePremiumStore((s) => s.isFeatureUnlocked('history'));
-  const { tryShowFirstValueInterstitial, trackActionAndMaybeShowInterstitial } = useInterstitialAd();
-  const { watchAdAndUnlock } = useRewardedAd();
+  const { tryShowFirstValueInterstitial, tryShowContextualInterstitial, trackActionAndMaybeShowInterstitial } =
+    useInterstitialAd();
+  const { unlockFeature, unlockAdFree } = useRewardedAd();
+
+  useEffect(() => {
+    setIsUserTyping(keyboardVisible);
+  }, [keyboardVisible, setIsUserTyping]);
 
   const displayGrossMonthly = useMemo(
     () => convertCurrency(results.grossMonthly, countryCurrency, displayCurrency),
@@ -117,16 +117,27 @@ export function HomeScreen() {
 
   useEffect(() => {
     const handler = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (quickMode) { setQuickMode(false); return true; }
-      if (breakdownVisible) { setBreakdownVisible(false); return true; }
-      if (keyboardVisible) { setKeyboardVisible(false); return true; }
+      if (quickMode) {
+        setQuickMode(false);
+        return true;
+      }
+      if (breakdownVisible) {
+        setBreakdownVisible(false);
+        return true;
+      }
+      if (keyboardVisible) {
+        setKeyboardVisible(false);
+        return true;
+      }
       return false;
     });
     return () => handler.remove();
   }, [keyboardVisible, breakdownVisible, quickMode]);
 
   const scrollToFocused = useCallback((y: number) => {
-    setTimeout(() => { scrollRef.current?.scrollTo({ y: Math.max(0, y - 60), animated: true }); }, 100);
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ y: Math.max(0, y - 60), animated: true });
+    }, 100);
   }, []);
 
   const handleTypeChange = useCallback((i: number) => setInputType(i === 0 ? 'gross' : 'net'), [setInputType]);
@@ -140,10 +151,10 @@ export function HomeScreen() {
         updateFromField(editingField, parseSalaryInput(newBuf));
         return newBuf;
       });
-    } else {
-      setInputValue(inputValue + key);
+      return;
     }
-  }, [inputValue, setInputValue, editingField, updateFromField]);
+    setInputValue(inputValue + key);
+  }, [editingField, inputValue, setInputValue, updateFromField]);
 
   const handleDelete = useCallback(() => {
     if (editingField) {
@@ -152,10 +163,10 @@ export function HomeScreen() {
         updateFromField(editingField, parseSalaryInput(newBuf));
         return newBuf;
       });
-    } else {
-      setInputValue(inputValue.slice(0, -1));
+      return;
     }
-  }, [inputValue, setInputValue, editingField, updateFromField]);
+    setInputValue(inputValue.slice(0, -1));
+  }, [editingField, inputValue, setInputValue, updateFromField]);
 
   const handleFieldPress = useCallback((field: keyof SalaryResults) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -165,7 +176,7 @@ export function HomeScreen() {
     setActiveField(field);
     openKeyboard();
     scrollToFocused(gridYRef.current);
-  }, [setActiveField, openKeyboard, updateFromField, scrollToFocused]);
+  }, [openKeyboard, scrollToFocused, setActiveField, updateFromField]);
 
   const handleInputAreaPress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -175,92 +186,83 @@ export function HomeScreen() {
     setActiveField('input');
     openKeyboard();
     scrollToFocused(inputYRef.current);
-  }, [setActiveField, openKeyboard, setInputValue, scrollToFocused]);
+  }, [openKeyboard, scrollToFocused, setActiveField, setInputValue]);
 
   const handleRecentSelect = useCallback((val: number) => {
     setInputValue(val.toString());
     setEditingField(null);
     setActiveField('input');
-  }, [setInputValue, setActiveField]);
+  }, [setActiveField, setInputValue]);
 
   const handleSmicPress = useCallback(() => {
-    if (smicValue) { fillSmic(smicValue); setEditingField(null); }
+    if (smicValue) {
+      fillSmic(smicValue);
+      setEditingField(null);
+    }
   }, [smicValue, fillSmic]);
 
   const shareText = formatShareText({
-    inputType, inputValue, results, symbol,
-    countryName: countryData?.name, countryFlag: countryData?.flag,
+    inputType,
+    inputValue,
+    results,
+    symbol,
+    countryName: countryData?.name,
+    countryFlag: countryData?.flag,
   });
 
   const handleShare = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    void trackActionAndMaybeShowInterstitial();
-    try { await Share.share({ message: shareText }); } catch (_) {}
+    try {
+      await Share.share({ message: shareText });
+    } catch (_) {}
+    void tryShowContextualInterstitial();
   };
 
   const historyGate = getFeatureGate('history');
   const visibleHistoryItems = useMemo(
-    () => historyItems.slice(0, isPremium || isHistoryRewardedUnlocked ? 8 : 3),
-    [historyItems, isHistoryRewardedUnlocked, isPremium]
+    () => historyItems.slice(0, isHistoryRewardedUnlocked ? 8 : 3),
+    [historyItems, isHistoryRewardedUnlocked]
   );
 
+  const openUnlockModal = useCallback((target: 'history' | 'multiCurrency' | 'adFree') => {
+    setUnlockTarget(target);
+    setUnlockModalVisible(true);
+  }, []);
+
   const handleAutoSave = useCallback(() => {
-    if (parseSalaryInput(inputValue) > 0) {
-      const gate = getFeatureGate('history');
-      if (!gate.allowed) {
-        openPaywall('feature-lock');
-        return;
-      }
-      saveSimulation('');
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      void trackActionAndMaybeShowInterstitial();
+    if (parseSalaryInput(inputValue) <= 0) return;
+    const gate = getFeatureGate('history');
+    if (!gate.allowed) {
+      openUnlockModal('history');
+      return;
     }
-  }, [inputValue, saveSimulation, trackActionAndMaybeShowInterstitial]);
+    saveSimulation('');
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    void trackActionAndMaybeShowInterstitial();
+  }, [inputValue, openUnlockModal, saveSimulation, trackActionAndMaybeShowInterstitial]);
 
   useEffect(() => {
     if (results.grossMonthly <= 0) return;
-    if (hasTriggeredFirstValueFlow) return;
-    setFirstValueFlowTriggered(true);
-    void (async () => {
-      await tryShowFirstValueInterstitial();
-      if (!hasSeenPaywall) {
-        openPaywall('first-session');
-        setHasSeenPaywall(true);
-      }
-    })();
-  }, [
-    hasSeenPaywall,
-    hasTriggeredFirstValueFlow,
-    results.grossMonthly,
-    setFirstValueFlowTriggered,
-    setHasSeenPaywall,
-    tryShowFirstValueInterstitial,
-  ]);
+    if (hasTriggeredFirstValueAd) return;
+    setHasTriggeredFirstValueAd(true);
+    void tryShowFirstValueInterstitial();
+  }, [hasTriggeredFirstValueAd, results.grossMonthly, tryShowFirstValueInterstitial]);
 
-  const handleUpgrade = useCallback(() => {
-    setPremium(true);
-    closePaywall();
-  }, [setPremium]);
-
-  const handleWatchAdUnlock = useCallback(async () => {
-    let result: Awaited<ReturnType<typeof watchAdAndUnlock>>;
-    if (paywallReason === 'feature-lock') {
-      result = await watchAdAndUnlock('history');
-    } else {
-      result = await watchAdAndUnlock('adFree');
-    }
+  const handleWatchUnlock = useCallback(async () => {
+    const result = unlockTarget === 'adFree' ? await unlockAdFree() : await unlockFeature(unlockTarget);
     if (result === 'rewarded') {
-      closePaywall();
+      setUnlockModalVisible(false);
+      setMultiCurrencyError(null);
     }
-  }, [paywallReason, watchAdAndUnlock]);
+  }, [unlockAdFree, unlockFeature, unlockTarget]);
 
-  const handleOpenPaywall = useCallback(
-    (reason: 'first-session' | 'feature-lock' | 'manual') => {
-      void trackActionAndMaybeShowInterstitial();
-      openPaywall(reason);
-    },
-    [trackActionAndMaybeShowInterstitial]
-  );
+  const handleUnlockAdFree = useCallback(async () => {
+    const result = await unlockAdFree();
+    if (result === 'rewarded') {
+      setUnlockModalVisible(false);
+      setMultiCurrencyError(null);
+    }
+  }, [unlockAdFree]);
 
   const handleDisplayCurrencyChange = useCallback(
     (index: number) => {
@@ -269,8 +271,8 @@ export function HomeScreen() {
       if (target !== countryCurrency) {
         const gate = getFeatureGate('multiCurrency');
         if (!gate.allowed) {
-          setMultiCurrencyError(gate.reason);
-          openPaywall('feature-lock');
+          setMultiCurrencyError('Limite atteinte. Débloquer avec une publicité.');
+          openUnlockModal('multiCurrency');
           return;
         }
       }
@@ -278,7 +280,7 @@ export function HomeScreen() {
       setDisplayCurrency(target);
       void trackActionAndMaybeShowInterstitial();
     },
-    [countryCurrency, displayCurrency, setDisplayCurrency, trackActionAndMaybeShowInterstitial]
+    [countryCurrency, displayCurrency, openUnlockModal, setDisplayCurrency, trackActionAndMaybeShowInterstitial]
   );
 
   const periodIndex = period === 'monthly' ? 0 : period === 'yearly' ? 1 : 2;
@@ -298,7 +300,12 @@ export function HomeScreen() {
               <Text style={styles.flag}>{countryData?.flag}</Text>
             </View>
             <View style={styles.headerActions}>
-              <PressableScale onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setQuickMode(true); }}>
+              <PressableScale
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  setQuickMode(true);
+                }}
+              >
                 <View style={[styles.quickBtn, { borderColor: theme.primary }]}>
                   <Text style={[styles.quickBtnText, { color: theme.primary }]}>⚡</Text>
                 </View>
@@ -309,7 +316,7 @@ export function HomeScreen() {
               <PressableScale onPress={handleAutoSave}>
                 <Text style={styles.headerIcon}>💾</Text>
               </PressableScale>
-              <PressableScale onPress={() => handleOpenPaywall('manual')}>
+              <PressableScale onPress={() => openUnlockModal('adFree')}>
                 <Text style={styles.headerIcon}>💎</Text>
               </PressableScale>
             </View>
@@ -341,7 +348,12 @@ export function HomeScreen() {
           {results.grossMonthly > 0 && (
             <AppCard>
               <SalaryChart gross={results.grossMonthly} net={results.netMonthly} symbol={symbol} />
-              <PressableScale onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setBreakdownVisible(true); }}>
+              <PressableScale
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setBreakdownVisible(true);
+                }}
+              >
                 <View style={[styles.detailBtn, { borderColor: theme.border }]}>
                   <Text style={[styles.detailBtnText, { color: theme.primary }]}>{LABELS.details}</Text>
                 </View>
@@ -370,12 +382,17 @@ export function HomeScreen() {
             </View>
           </View>
 
-          <View onLayout={(e) => { inputYRef.current = e.nativeEvent.layout.y; }}>
+          <View
+            onLayout={(e) => {
+              inputYRef.current = e.nativeEvent.layout.y;
+            }}
+          >
             <TouchableOpacity onPress={handleInputAreaPress} activeOpacity={0.9}>
               <EditableFieldWrapper isActive={activeField === 'input'}>
                 <View style={styles.inputInner}>
                   <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>
-                    {inputType === 'gross' ? LABELS.gross : LABELS.net} {period === 'monthly' ? LABELS.monthlyFull : period === 'yearly' ? LABELS.yearlyFull : LABELS.dailyFull}
+                    {inputType === 'gross' ? LABELS.gross : LABELS.net}{' '}
+                    {period === 'monthly' ? LABELS.monthlyFull : period === 'yearly' ? LABELS.yearlyFull : LABELS.dailyFull}
                   </Text>
                   <Text style={[styles.inputDisplay, { color: theme.text }]}>
                     {inputValue || '0'} {symbol}
@@ -387,7 +404,11 @@ export function HomeScreen() {
 
           <View style={{ height: 8 }} />
 
-          <View onLayout={(e) => { gridYRef.current = e.nativeEvent.layout.y; }}>
+          <View
+            onLayout={(e) => {
+              gridYRef.current = e.nativeEvent.layout.y;
+            }}
+          >
             <AppCard>
               <ResultGrid results={results} symbol={symbol} activeField={activeField} onFieldPress={handleFieldPress} />
             </AppCard>
@@ -397,7 +418,7 @@ export function HomeScreen() {
             <View style={styles.historyHeader}>
               <Text style={[styles.sectionTitle, { color: theme.text }]}>{LABELS.history}</Text>
               {historyItems.length > 0 && (
-                <PressableScale onPress={() => setHistorySortMode((m) => m === 'date' ? 'amount' : 'date')}>
+                <PressableScale onPress={() => setHistorySortMode((m) => (m === 'date' ? 'amount' : 'date'))}>
                   <Text style={[styles.sortBtn, { color: theme.textMuted }]}>
                     {historySortMode === 'date' ? '📅' : '💰'}
                   </Text>
@@ -420,7 +441,7 @@ export function HomeScreen() {
             )}
             {!historyGate.allowed ? (
               <Text style={[styles.lockHint, { color: theme.warning }]}>
-                Limite gratuite atteinte (3). Regarde une pub ou passe Premium.
+                Limite atteinte. Débloquer avec une publicité.
               </Text>
             ) : null}
           </AppCard>
@@ -452,10 +473,17 @@ export function HomeScreen() {
         pasRate={pasRate}
         symbol={symbol}
       />
-      <PaywallModal
-        visible={paywallVisible}
-        onClose={closePaywall}
-        onWatchAd={handleWatchAdUnlock}
+      <AdUnlockModal
+        visible={unlockModalVisible}
+        onClose={() => setUnlockModalVisible(false)}
+        onWatchAd={handleWatchUnlock}
+        onAdFree={handleUnlockAdFree}
+        title={unlockTarget === 'adFree' ? 'Supprimer les pubs 30 min' : 'Débloquer cette fonctionnalité'}
+        description={
+          unlockTarget === 'adFree'
+            ? 'Regardez une courte publicité pour supprimer les pubs pendant 30 minutes.'
+            : 'Regardez une courte publicité pour continuer.'
+        }
       />
     </SafeAreaView>
   );

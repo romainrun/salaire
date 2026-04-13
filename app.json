@@ -48,8 +48,7 @@
           "optimizeInitialization": true,
           "optimizeAdLoading": true
         }
-      ],
-      "react-native-iap"
+      ]
     ],
     "extra": {
       "eas": {

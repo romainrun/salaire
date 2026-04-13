@@ -129,8 +129,7 @@ export const useSalaryStore = create<SalaryState>()(
 
       setMode: (mode) => {
         const premium = usePremiumStore.getState();
-        const isAdvancedAllowed =
-          premium.isPremium || premium.isFeatureUnlocked('advancedOptions');
+        const isAdvancedAllowed = premium.isFeatureUnlocked('advancedOptions');
         if (mode === 'advanced' && !isAdvancedAllowed) {
           return;
         }
@@ -196,9 +195,8 @@ export const useSalaryStore = create<SalaryState>()(
         const value = parseSalaryInput(state.inputValue);
         if (value <= 0) return;
         const premiumState = usePremiumStore.getState();
-        const hasUnlimitedHistory =
-          premiumState.isPremium || premiumState.isFeatureUnlocked('history');
-        if (!hasUnlimitedHistory && state.history.length >= FREE_HISTORY_LIMIT) {
+        const isHistoryUnlocked = premiumState.isFeatureUnlocked('history');
+        if (!isHistoryUnlocked && state.history.length >= FREE_HISTORY_LIMIT) {
           return;
         }
         const item: SimulationHistoryItem = {

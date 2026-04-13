@@ -6,6 +6,7 @@ import { useUIStore } from '../../store/uiStore';
 const SESSION_AD_CAP = 3;
 const DAILY_AD_CAP = 5;
 const ACTIONS_BETWEEN_INTERSTITIAL = 2;
+const MIN_SECONDS_BETWEEN_INTERSTITIALS = 10;
 
 function isDailyCapReached(dailyAdDate: string, dailyAdCount: number): boolean {
   const today = new Date().toISOString().slice(0, 10);
@@ -14,12 +15,13 @@ function isDailyCapReached(dailyAdDate: string, dailyAdCount: number): boolean {
 }
 
 export function useInterstitialAd() {
-  const isPremium = usePremiumStore((s) => s.isPremium);
   const isAdFreeActive = usePremiumStore((s) => s.isAdFreeActive);
   const actionCount = useUIStore((s) => s.actionCount);
   const sessionAdCount = useUIStore((s) => s.sessionAdCount);
   const dailyAdCount = useUIStore((s) => s.dailyAdCount);
   const dailyAdDate = useUIStore((s) => s.dailyAdDate);
+  const lastAdTimestamp = useUIStore((s) => s.lastAdTimestamp);
+  const isTyping = useUIStore((s) => s.isUserTyping);
   const registerInterstitialShown = useUIStore((s) => s.registerInterstitialShown);
   const incrementActionCount = useUIStore((s) => s.incrementActionCount);
   const actionCountRef = useRef(actionCount);
@@ -31,12 +33,25 @@ export function useInterstitialAd() {
   }, [dailyAdCount, dailyAdDate, sessionAdCount]);
 
   const canAttempt = useCallback(() => {
-    if (isPremium || isAdFreeActive()) return false;
+    if (isAdFreeActive()) return false;
     if (isCapped) return false;
+    if (isTyping) return false;
+    if (lastAdTimestamp && Date.now() - lastAdTimestamp < MIN_SECONDS_BETWEEN_INTERSTITIALS * 1000) {
+      return false;
+    }
     return true;
-  }, [isAdFreeActive, isCapped, isPremium]);
+  }, [isAdFreeActive, isCapped, isTyping, lastAdTimestamp]);
 
   const tryShowFirstValueInterstitial = useCallback(async () => {
+    if (!canAttempt()) return 'skipped' as const;
+    const result = await adService.tryShowInterstitial();
+    if (result === 'shown') {
+      registerInterstitialShown();
+    }
+    return result;
+  }, [canAttempt, registerInterstitialShown]);
+
+  const tryShowContextualInterstitial = useCallback(async () => {
     if (!canAttempt()) return 'skipped' as const;
     const result = await adService.tryShowInterstitial();
     if (result === 'shown') {
@@ -66,6 +81,7 @@ export function useInterstitialAd() {
     isCapped,
     trackAction,
     trackActionAndMaybeShowInterstitial,
+    tryShowContextualInterstitial,
     tryShowFirstValueInterstitial,
   };
 }

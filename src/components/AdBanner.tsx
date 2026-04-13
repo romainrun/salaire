@@ -8,7 +8,6 @@ interface AdBannerProps {
 }
 
 export function AdBanner({ topSpacing = 0 }: AdBannerProps) {
-  const isPremium = usePremiumStore((s) => s.isPremium);
   const isAdFreeActive = usePremiumStore((s) => s.isAdFreeActive);
   const unitId = adService.getBannerUnitId();
   const sdk = useMemo(() => {
@@ -22,7 +21,7 @@ export function AdBanner({ topSpacing = 0 }: AdBannerProps) {
     }
   }, []);
 
-  if (isPremium || isAdFreeActive() || !unitId || !sdk) {
+  if (isAdFreeActive() || !unitId || !sdk) {
     return null;
   }
 

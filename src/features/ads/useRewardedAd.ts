@@ -1,47 +1,93 @@
 import { Alert } from 'react-native';
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { adService } from './adService';
-import { usePremiumStore, type UnlockableFeature } from '../../store/premiumStore';
+import { usePremiumStore } from '../../store/premiumStore';
 
 const DEFAULT_REWARD_MINUTES = 30;
-
-export type RewardedTarget = UnlockableFeature | 'adFree';
+const TAP_DEBOUNCE_MS = 800;
 
 export function useRewardedAd() {
   const setAdFreeForMinutes = usePremiumStore((s) => s.setAdFreeForMinutes);
   const unlockFeatureForMinutes = usePremiumStore((s) => s.unlockFeatureForMinutes);
-  const isPremium = usePremiumStore((s) => s.isPremium);
+  const lastTapRef = useRef(0);
 
-  const rewardForTarget = useCallback(
-    (target: RewardedTarget) => {
-      if (target === 'adFree') {
-        setAdFreeForMinutes(DEFAULT_REWARD_MINUTES);
-        return;
+  const shouldDebounce = useCallback(() => {
+    const now = Date.now();
+    if (now - lastTapRef.current < TAP_DEBOUNCE_MS) {
+      return true;
+    }
+    lastTapRef.current = now;
+    return false;
+  }, []);
+
+  const showUnavailableAlert = useCallback((message: string) => {
+    Alert.alert('Publicité indisponible', message);
+  }, []);
+
+  const showRewardedWithRetry = useCallback(
+    async (onReward: () => void) => {
+      if (!adService.isSupported()) {
+        showUnavailableAlert('Les publicités récompensées ne sont pas disponibles sur cette plateforme.');
+        return 'skipped' as const;
       }
-      unlockFeatureForMinutes(target, DEFAULT_REWARD_MINUTES);
+      if (!adService.isRewardedReady()) {
+        adService.preloadRewarded();
+      }
+      const firstTry = await adService.tryShowRewarded(onReward);
+      if (firstTry === 'rewarded') {
+        return firstTry;
+      }
+      if (firstTry === 'error' || firstTry === 'timeout') {
+        adService.preloadRewarded();
+        return adService.tryShowRewarded(onReward);
+      }
+      return firstTry;
     },
-    [setAdFreeForMinutes, unlockFeatureForMinutes]
+    [showUnavailableAlert]
   );
 
-  const watchAdAndUnlock = useCallback(
-    async (target: RewardedTarget) => {
-      if (isPremium) {
-        return 'rewarded' as const;
+  const unlockFeature = useCallback(
+    async (featureKey: string) => {
+      if (shouldDebounce()) return 'skipped' as const;
+      const result = await showRewardedWithRetry(() => {
+        unlockFeatureForMinutes(featureKey, DEFAULT_REWARD_MINUTES);
+      });
+      if (result === 'skipped') {
+        showUnavailableAlert(
+          'Vérifie ta connexion internet puis réessaie dans un instant.'
+        );
       }
-      const result = await adService.tryShowRewarded(() => rewardForTarget(target));
-      if (result !== 'rewarded') {
-        Alert.alert(
-          'Pub indisponible',
-          'La publicité récompensée est momentanément indisponible. Réessaie dans un instant.'
+      if (result === 'error' || result === 'timeout') {
+        showUnavailableAlert(
+          'Une erreur est survenue pendant la publicité. Réessaie.'
         );
       }
       return result;
     },
-    [isPremium, rewardForTarget]
+    [showRewardedWithRetry, shouldDebounce, showUnavailableAlert, unlockFeatureForMinutes]
   );
 
+  const unlockAdFree = useCallback(async () => {
+    if (shouldDebounce()) return 'skipped' as const;
+    const result = await showRewardedWithRetry(() => {
+      setAdFreeForMinutes(DEFAULT_REWARD_MINUTES);
+    });
+    if (result === 'skipped') {
+      showUnavailableAlert(
+        'Vérifie ta connexion internet puis réessaie dans un instant.'
+      );
+    }
+    if (result === 'error' || result === 'timeout') {
+      showUnavailableAlert(
+        'Une erreur est survenue pendant la publicité. Réessaie.'
+      );
+    }
+    return result;
+  }, [setAdFreeForMinutes, shouldDebounce, showRewardedWithRetry, showUnavailableAlert]);
+
   return {
-    watchAdAndUnlock,
+    unlockFeature,
+    unlockAdFree,
     rewardDurationMinutes: DEFAULT_REWARD_MINUTES,
   };
 }

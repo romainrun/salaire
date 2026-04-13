@@ -2,22 +2,17 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { zustandStorage } from './persist';
 
-export type UnlockableFeature = 'history' | 'comparison' | 'advancedOptions' | 'multiCurrency';
-
 interface PremiumState {
-  isPremium: boolean;
   adFreeUntil: number | null;
-  unlockedFeatures: Partial<Record<UnlockableFeature, number>>;
-  unlockPremium: () => void;
-  setPremium: (value: boolean) => void;
+  unlockedFeatures: Record<string, number>;
   setAdFreeForMinutes: (minutes: number) => void;
   clearAdFree: () => void;
-  unlockFeatureForMinutes: (feature: UnlockableFeature, minutes: number) => void;
-  clearFeatureUnlock: (feature: UnlockableFeature) => void;
+  unlockFeatureForMinutes: (feature: string, minutes: number) => void;
+  clearFeatureUnlock: (feature: string) => void;
   clearExpiredUnlocks: () => void;
   isAdFreeActive: () => boolean;
-  isFeatureUnlocked: (feature: UnlockableFeature) => boolean;
-  resetPremium: () => void;
+  isFeatureUnlocked: (feature: string) => boolean;
+  resetUnlocks: () => void;
 }
 
 function getNow() {
@@ -27,12 +22,9 @@ function getNow() {
 export const usePremiumStore = create<PremiumState>()(
   persist(
     (set, get) => ({
-      isPremium: false,
       adFreeUntil: null,
       unlockedFeatures: {},
 
-      unlockPremium: () => set({ isPremium: true }),
-      setPremium: (value) => set({ isPremium: value }),
       setAdFreeForMinutes: (minutes) =>
         set({
           adFreeUntil: getNow() + Math.max(1, minutes) * 60 * 1000,
@@ -54,31 +46,28 @@ export const usePremiumStore = create<PremiumState>()(
       clearExpiredUnlocks: () =>
         set((state) => {
           const now = getNow();
-          const next: Partial<Record<UnlockableFeature, number>> = {};
-          (Object.keys(state.unlockedFeatures) as UnlockableFeature[]).forEach((feature) => {
-            const until = state.unlockedFeatures[feature];
-            if (until && until > now) {
-              next[feature] = until;
-            }
-          });
+          const next = Object.fromEntries(
+            Object.entries(state.unlockedFeatures).filter(([, until]) => !!until && until > now)
+          ) as Record<string, number>;
           return {
             unlockedFeatures: next,
             adFreeUntil: state.adFreeUntil && state.adFreeUntil > now ? state.adFreeUntil : null,
           };
         }),
       isAdFreeActive: (): boolean => {
-        const { isPremium, adFreeUntil } = get();
-        if (isPremium) return true;
+        const { adFreeUntil } = get();
         return !!adFreeUntil && adFreeUntil > getNow();
       },
-      isFeatureUnlocked: (feature: UnlockableFeature): boolean => {
-        const { isPremium, unlockedFeatures } = get();
-        if (isPremium) return true;
+      isFeatureUnlocked: (feature: string): boolean => {
+        const { unlockedFeatures } = get();
         const until = unlockedFeatures[feature];
         return !!until && until > getNow();
       },
-      resetPremium: () =>
-        set({ isPremium: false, adFreeUntil: null, unlockedFeatures: {} as Partial<Record<UnlockableFeature, number>> }),
+      resetUnlocks: () =>
+        set({
+          adFreeUntil: null,
+          unlockedFeatures: {},
+        }),
     }),
     {
       name: 'premium-storage',
