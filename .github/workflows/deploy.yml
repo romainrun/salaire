@@ -116,6 +116,7 @@ jobs:
         env:
           EXPO_EAS_PROJECT_ID: 6ceb6c7f-7f85-43c8-be7f-028ef8e51851
           EXPO_OWNER: krorun
+          EXPO_PUBLIC_GITHUB_DISABLE_ADS: ${{ vars.GITHUB_DISABLE_ADS }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -167,6 +168,7 @@ jobs:
         env:
           EXPO_EAS_PROJECT_ID: 6ceb6c7f-7f85-43c8-be7f-028ef8e51851
           EXPO_OWNER: krorun
+          EXPO_PUBLIC_GITHUB_DISABLE_ADS: ${{ vars.GITHUB_DISABLE_ADS }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

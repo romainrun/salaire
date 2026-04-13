@@ -18,6 +18,7 @@ import { useRewardedAd } from '../../features/ads/useRewardedAd';
 import { useFeatureGate } from '../../features/premium/useFeatureGate';
 import { AdUnlockModal } from '../../features/unlock/AdUnlockModal';
 import { analyticsService } from '../../features/analytics/analyticsService';
+import { ADS_DISABLED_OVERRIDE, FORCE_TOP_BANNER_AB_IN_PROD } from '../../config/runtimeFlags';
 
 function SettingsSection({ title, children }: { title: string; children: React.ReactNode }) {
   const { theme } = useTheme();
@@ -59,6 +60,9 @@ export function SettingsScreen() {
 
   const handleThemeChange = (index: number) => setTheme(themeOptions[index]);
   const handleTopBannerToggle = (value: boolean) => {
+    if (FORCE_TOP_BANNER_AB_IN_PROD) {
+      return;
+    }
     setShowTopHomeBanner(value);
     analyticsService.trackEvent('top_banner_toggle', { enabled: value });
   };
@@ -179,10 +183,19 @@ export function SettingsScreen() {
         <SettingsSection title="Monétisation">
           <AppSwitchRow
             label="Banner haut (A/B)"
-            description="Activer un second banner sur l'écran principal"
+            description={
+              FORCE_TOP_BANNER_AB_IN_PROD
+                ? 'Actif en production (forcé)'
+                : 'Activer un second banner sur l\'écran principal'
+            }
             value={showTopHomeBanner}
             onValueChange={handleTopBannerToggle}
           />
+          {ADS_DISABLED_OVERRIDE ? (
+            <Text style={[styles.overrideHint, { color: theme.warning }]}>
+              Mode test activé: pubs désactivées et fonctionnalités débloquées.
+            </Text>
+          ) : null}
           <View style={styles.buttonGroup}>
             <AppSwitchRow
               label="Mode avancé"
@@ -264,4 +277,5 @@ const styles = StyleSheet.create({
   footer: { alignItems: 'center', paddingVertical: 20 },
   footerName: { fontSize: 14, fontWeight: '700' },
   footerTagline: { fontSize: 11, marginTop: 2 },
+  overrideHint: { fontSize: 12, fontWeight: '600', marginTop: 8 },
 });

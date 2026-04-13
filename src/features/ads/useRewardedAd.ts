@@ -3,6 +3,7 @@ import { useCallback, useRef } from 'react';
 import { adService } from './adService';
 import { usePremiumStore } from '../../store/premiumStore';
 import { analyticsService } from '../analytics/analyticsService';
+import { ADS_DISABLED_OVERRIDE } from '../../config/runtimeFlags';
 
 const DEFAULT_REWARD_MINUTES = 30;
 const TAP_DEBOUNCE_MS = 800;
@@ -27,6 +28,15 @@ export function useRewardedAd() {
 
   const showRewardedWithRetry = useCallback(
     async (onReward: () => void, context: string) => {
+      if (ADS_DISABLED_OVERRIDE) {
+        onReward();
+        analyticsService.trackEvent('rewarded_result', {
+          context,
+          result: 'rewarded',
+          reason: 'ads_disabled_override',
+        });
+        return 'rewarded' as const;
+      }
       analyticsService.trackEvent('rewarded_attempt', {
         context,
         supported: adService.isSupported(),

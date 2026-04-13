@@ -2,12 +2,16 @@ import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { adService, type AdSdk } from '../features/ads/adService';
 import { usePremiumStore } from '../store/premiumStore';
+import { ADS_ENABLED_IN_BUILD } from '../config/runtimeFlags';
 
 interface AdBannerProps {
   topSpacing?: number;
 }
 
 export function AdBanner({ topSpacing = 0 }: AdBannerProps) {
+  if (!ADS_ENABLED_IN_BUILD) {
+    return null;
+  }
   const isAdFreeActive = usePremiumStore((s) => s.isAdFreeActive);
   const unitId = adService.getBannerUnitId();
   const sdk = useMemo(() => {

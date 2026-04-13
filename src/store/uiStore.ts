@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { zustandStorage } from './persist';
 import type { ThemeMode, SalaryMode } from '../types';
+import { FORCE_TOP_BANNER_AB_IN_PROD } from '../config/runtimeFlags';
 
 function getDayKey(): string {
   return new Date().toISOString().slice(0, 10);
@@ -54,7 +55,7 @@ export const useUIStore = create<UIState>()(
       comparisonUsageCount: 0,
       dailyAdCount: 0,
       dailyAdDate: getDayKey(),
-      showTopHomeBanner: false,
+      showTopHomeBanner: FORCE_TOP_BANNER_AB_IN_PROD,
       isUserTyping: false,
 
       setTheme: (theme) => set({ theme }),
@@ -88,6 +89,7 @@ export const useUIStore = create<UIState>()(
           actionCount: 0,
           sessionAdCount: 0,
           comparisonUsageCount: 0,
+          showTopHomeBanner: FORCE_TOP_BANNER_AB_IN_PROD,
           isUserTyping: false,
         }),
       resetUI: () =>
@@ -104,7 +106,7 @@ export const useUIStore = create<UIState>()(
           comparisonUsageCount: 0,
           dailyAdCount: 0,
           dailyAdDate: getDayKey(),
-          showTopHomeBanner: false,
+          showTopHomeBanner: FORCE_TOP_BANNER_AB_IN_PROD,
           isUserTyping: false,
         }),
     }),

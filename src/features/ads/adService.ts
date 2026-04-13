@@ -1,5 +1,6 @@
 import type { AdService, InterstitialShowResult, RewardedShowResult } from './types';
 import { ADMOB_CONFIG } from '../../config/monetization';
+import { ADS_ENABLED_IN_BUILD } from '../../config/runtimeFlags';
 
 const INTERSTITIAL_LOAD_RETRY_MS = 2000;
 const REWARDED_LOAD_RETRY_MS = 2000;
@@ -279,6 +280,9 @@ class MobileAdService implements AdService {
 }
 
 function createAdService(): AdService {
+  if (!ADS_ENABLED_IN_BUILD) {
+    return new NoopAdService();
+  }
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const sdk = require('react-native-google-mobile-ads') as AdSdk;

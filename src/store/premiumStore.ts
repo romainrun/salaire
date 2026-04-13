@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { zustandStorage } from './persist';
+import { ADS_DISABLED_OVERRIDE } from '../config/runtimeFlags';
 
 interface PremiumState {
   adFreeUntil: number | null;
@@ -55,10 +56,12 @@ export const usePremiumStore = create<PremiumState>()(
           };
         }),
       isAdFreeActive: (): boolean => {
+        if (ADS_DISABLED_OVERRIDE) return true;
         const { adFreeUntil } = get();
         return !!adFreeUntil && adFreeUntil > getNow();
       },
       isFeatureUnlocked: (feature: string): boolean => {
+        if (ADS_DISABLED_OVERRIDE) return true;
         const { unlockedFeatures } = get();
         const until = unlockedFeatures[feature];
         return !!until && until > getNow();

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { usePremiumStore } from '../../store/premiumStore';
 import { useSalaryStore } from '../../store/salaryStore';
 import { useUIStore } from '../../store/uiStore';
+import { ADS_DISABLED_OVERRIDE } from '../../config/runtimeFlags';
 
 export type FeatureGateKey = 'history' | 'comparison' | 'advancedOptions' | 'multiCurrency';
 
@@ -14,6 +15,9 @@ const FREE_HISTORY_LIMIT = 1;
 const FREE_COMPARISON_LIMIT = 1;
 
 function evaluateGate(key: FeatureGateKey): FeatureGateResult {
+  if (ADS_DISABLED_OVERRIDE) {
+    return { allowed: true, requiresAd: false };
+  }
   const premium = usePremiumStore.getState();
   const salary = useSalaryStore.getState();
   const ui = useUIStore.getState();
