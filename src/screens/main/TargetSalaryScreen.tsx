@@ -15,6 +15,7 @@ import { LABELS } from '../../constants/appName';
 import { parseInputAmount, formatCurrency } from '../../utils/format';
 import { netToGross, monthlyToYearly } from '../../utils/salary';
 import { useInterstitialAd } from '../../features/ads/useInterstitialAd';
+import { analyticsService } from '../../features/analytics/analyticsService';
 
 export function TargetSalaryScreen() {
   const { theme } = useTheme();
@@ -59,9 +60,12 @@ export function TargetSalaryScreen() {
     ].join('\n');
     try {
       await Share.share({ message: text });
+      analyticsService.trackEvent('share_target_salary', {
+        target_amount: Math.round(effectiveTarget),
+      });
     } catch (_) {}
     if (effectiveTarget > 0) {
-      void tryShowContextualInterstitial();
+      void tryShowContextualInterstitial('target_share');
     }
   };
 

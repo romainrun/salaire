@@ -129,7 +129,7 @@ jobs:
           echo '${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}' > google-sa.json
           npx @nicepkg/gp-upload \
             --key google-sa.json \
-            --package com.kns.salaire \
+            --package com.kns.salary \
             --aab Salaire-android.aab \
             --track production
 

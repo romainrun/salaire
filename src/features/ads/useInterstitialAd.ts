@@ -2,11 +2,13 @@ import { useCallback, useMemo, useRef } from 'react';
 import { adService } from './adService';
 import { usePremiumStore } from '../../store/premiumStore';
 import { useUIStore } from '../../store/uiStore';
+import { analyticsService } from '../analytics/analyticsService';
 
 const SESSION_AD_CAP = 3;
 const DAILY_AD_CAP = 5;
 const ACTIONS_BETWEEN_INTERSTITIAL = 2;
 const MIN_SECONDS_BETWEEN_INTERSTITIALS = 10;
+type InterstitialPlacement = 'first_value' | 'contextual' | 'action_interval';
 
 function isDailyCapReached(dailyAdDate: string, dailyAdCount: number): boolean {
   const today = new Date().toISOString().slice(0, 10);
@@ -32,45 +34,83 @@ export function useInterstitialAd() {
     return isDailyCapReached(dailyAdDate, dailyAdCount);
   }, [dailyAdCount, dailyAdDate, sessionAdCount]);
 
-  const canAttempt = useCallback(() => {
-    if (isAdFreeActive()) return false;
-    if (isCapped) return false;
-    if (isTyping) return false;
+  const getSkipReason = useCallback((): string | null => {
+    if (isAdFreeActive()) return 'ad_free';
+    if (isCapped) return 'cap_reached';
+    if (isTyping) return 'typing';
     if (lastAdTimestamp && Date.now() - lastAdTimestamp < MIN_SECONDS_BETWEEN_INTERSTITIALS * 1000) {
-      return false;
+      return 'cooldown';
     }
-    return true;
+    return null;
   }, [isAdFreeActive, isCapped, isTyping, lastAdTimestamp]);
 
-  const tryShowFirstValueInterstitial = useCallback(async () => {
-    if (!canAttempt()) return 'skipped' as const;
+  const canAttempt = useCallback(() => {
+    return getSkipReason() === null;
+  }, [getSkipReason]);
+
+  const trackInterstitialEvent = useCallback(
+    (placement: InterstitialPlacement, trigger: string, result: string, reason?: string) => {
+      analyticsService.trackEvent('interstitial_event', {
+        placement,
+        trigger,
+        result,
+        reason,
+        action_count: actionCountRef.current,
+        session_ads: sessionAdCount,
+        daily_ads: dailyAdCount,
+      });
+    },
+    [dailyAdCount, sessionAdCount]
+  );
+
+  const tryShowFirstValueInterstitial = useCallback(async (trigger = 'default') => {
+    const skipReason = getSkipReason();
+    if (skipReason) {
+      trackInterstitialEvent('first_value', trigger, 'skipped', skipReason);
+      return 'skipped' as const;
+    }
     const result = await adService.tryShowInterstitial();
     if (result === 'shown') {
       registerInterstitialShown();
     }
+    trackInterstitialEvent('first_value', trigger, result);
     return result;
-  }, [canAttempt, registerInterstitialShown]);
+  }, [getSkipReason, registerInterstitialShown, trackInterstitialEvent]);
 
-  const tryShowContextualInterstitial = useCallback(async () => {
-    if (!canAttempt()) return 'skipped' as const;
+  const tryShowContextualInterstitial = useCallback(async (trigger = 'default') => {
+    const skipReason = getSkipReason();
+    if (skipReason) {
+      trackInterstitialEvent('contextual', trigger, 'skipped', skipReason);
+      return 'skipped' as const;
+    }
     const result = await adService.tryShowInterstitial();
     if (result === 'shown') {
       registerInterstitialShown();
     }
+    trackInterstitialEvent('contextual', trigger, result);
     return result;
-  }, [canAttempt, registerInterstitialShown]);
+  }, [getSkipReason, registerInterstitialShown, trackInterstitialEvent]);
 
-  const trackActionAndMaybeShowInterstitial = useCallback(async () => {
+  const trackActionAndMaybeShowInterstitial = useCallback(async (trigger = 'default') => {
     incrementActionCount();
-    if (!canAttempt()) return 'skipped' as const;
     const nextActionCount = actionCountRef.current + 1;
-    if (nextActionCount % ACTIONS_BETWEEN_INTERSTITIAL !== 0) return 'skipped' as const;
+    actionCountRef.current = nextActionCount;
+    const skipReason = getSkipReason();
+    if (skipReason) {
+      trackInterstitialEvent('action_interval', trigger, 'skipped', skipReason);
+      return 'skipped' as const;
+    }
+    if (nextActionCount % ACTIONS_BETWEEN_INTERSTITIAL !== 0) {
+      trackInterstitialEvent('action_interval', trigger, 'skipped', 'interval_not_reached');
+      return 'skipped' as const;
+    }
     const result = await adService.tryShowInterstitial();
     if (result === 'shown') {
       registerInterstitialShown();
     }
+    trackInterstitialEvent('action_interval', trigger, result);
     return result;
-  }, [canAttempt, incrementActionCount, registerInterstitialShown]);
+  }, [getSkipReason, incrementActionCount, registerInterstitialShown, trackInterstitialEvent]);
 
   const trackAction = useCallback(() => {
     incrementActionCount();

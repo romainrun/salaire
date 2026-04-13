@@ -17,6 +17,7 @@ import { usePremiumStore } from '../../store/premiumStore';
 import { useUIStore } from '../../store/uiStore';
 import { useInterstitialAd } from '../ads/useInterstitialAd';
 import { AdUnlockModal } from '../unlock/AdUnlockModal';
+import { analyticsService } from '../analytics/analyticsService';
 
 function CountryPicker({
   selected,
@@ -85,8 +86,13 @@ export function CompareScreen() {
     }
     if (hasShownResultAd) return;
     setHasShownResultAd(true);
-    void tryShowContextualInterstitial();
-  }, [gross, hasShownResultAd, tryShowContextualInterstitial]);
+    analyticsService.trackEvent('comparison_result_seen', {
+      gross_value: gross,
+      country_a: countryA.code,
+      country_b: countryB.code,
+    });
+    void tryShowContextualInterstitial('comparison_result');
+  }, [countryA.code, countryB.code, gross, hasShownResultAd, tryShowContextualInterstitial]);
 
   const onSelectCountry = useCallback(
     (target: 'A' | 'B', value: Country) => {
@@ -95,6 +101,10 @@ export function CompareScreen() {
         (target === 'B' && value.code === countryB.code);
       if (sameSelection) return;
       if (!comparisonGate.allowed) {
+        analyticsService.trackEvent('comparison_unlock_prompt_opened', {
+          selected_country: value.code,
+          target_slot: target,
+        });
         setUnlockVisible(true);
         return;
       }
@@ -104,7 +114,11 @@ export function CompareScreen() {
         setCountryB(value);
       }
       incrementComparisonUsage();
-      void tryShowContextualInterstitial();
+      analyticsService.trackEvent('comparison_country_changed', {
+        target_slot: target,
+        selected_country: value.code,
+      });
+      void tryShowContextualInterstitial('comparison_country_change');
     },
     [
       comparisonGate.allowed,
@@ -117,6 +131,7 @@ export function CompareScreen() {
 
   const handleUnlockComparison = useCallback(async () => {
     const result = await unlockFeature('comparison');
+    analyticsService.trackEvent('comparison_unlock_attempt', { result });
     if (result === 'rewarded') {
       setUnlockVisible(false);
     }
@@ -124,6 +139,7 @@ export function CompareScreen() {
 
   const handleUnlockAdFree = useCallback(async () => {
     const result = await unlockAdFree();
+    analyticsService.trackEvent('comparison_ad_free_attempt', { result });
     if (result === 'rewarded') {
       setUnlockVisible(false);
     }

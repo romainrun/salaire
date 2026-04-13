@@ -40,6 +40,7 @@ import { useRewardedAd } from '../../features/ads/useRewardedAd';
 import { useUIStore } from '../../store/uiStore';
 import { usePremiumStore } from '../../store/premiumStore';
 import { getFeatureGate } from '../../features/premium/useFeatureGate';
+import { analyticsService } from '../../features/analytics/analyticsService';
 
 const KEYBOARD_VISIBLE_OFFSET = 240;
 
@@ -209,8 +210,13 @@ export function HomeScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       await Share.share({ message: shareText });
+      analyticsService.trackEvent('share_from_home', {
+        has_result: results.grossMonthly > 0,
+        input_type: inputType,
+        period,
+      });
     } catch (_) {}
-    void tryShowContextualInterstitial();
+    void tryShowContextualInterstitial('home_share');
   };
 
   const historyGate = getFeatureGate('history');
@@ -228,19 +234,33 @@ export function HomeScreen() {
     if (parseSalaryInput(inputValue) <= 0) return;
     const gate = getFeatureGate('history');
     if (!gate.allowed) {
+      analyticsService.trackEvent('history_save_blocked', {
+        reason: 'history_limit',
+        visible_history_count: visibleHistoryItems.length,
+      });
       openUnlockModal('history');
       return;
     }
     saveSimulation('');
+    analyticsService.trackEvent('history_save_success', {
+      history_count: historyItems.length + 1,
+    });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    void trackActionAndMaybeShowInterstitial();
-  }, [inputValue, openUnlockModal, saveSimulation, trackActionAndMaybeShowInterstitial]);
+    void trackActionAndMaybeShowInterstitial('home_autosave');
+  }, [
+    historyItems.length,
+    inputValue,
+    openUnlockModal,
+    saveSimulation,
+    trackActionAndMaybeShowInterstitial,
+    visibleHistoryItems.length,
+  ]);
 
   useEffect(() => {
     if (results.grossMonthly <= 0) return;
     if (hasTriggeredFirstValueAd) return;
     setHasTriggeredFirstValueAd(true);
-    void tryShowFirstValueInterstitial();
+    void tryShowFirstValueInterstitial('home_first_result');
   }, [hasTriggeredFirstValueAd, results.grossMonthly, tryShowFirstValueInterstitial]);
 
   const handleWatchUnlock = useCallback(async () => {

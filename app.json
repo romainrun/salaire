@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.kns.salaire",
+      "bundleIdentifier": "com.kns.salary",
       "infoPlist": {
         "GADApplicationIdentifier": "ca-app-pub-3137130387262789~7100960852",
         "NSUserTrackingUsageDescription": "Cette autorisation permet d'afficher des offres plus pertinentes."
@@ -28,7 +28,7 @@
         "backgroundColor": "#0F0F14"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.kns.salaire",
+      "package": "com.kns.salary",
       "versionCode": 1071999664
     },
     "web": {

@@ -17,6 +17,7 @@ import type { ThemeMode, Country } from '../../types';
 import { useRewardedAd } from '../../features/ads/useRewardedAd';
 import { useFeatureGate } from '../../features/premium/useFeatureGate';
 import { AdUnlockModal } from '../../features/unlock/AdUnlockModal';
+import { analyticsService } from '../../features/analytics/analyticsService';
 
 function SettingsSection({ title, children }: { title: string; children: React.ReactNode }) {
   const { theme } = useTheme();
@@ -57,11 +58,20 @@ export function SettingsScreen() {
   const themeIndex = themeOptions.indexOf(uiTheme);
 
   const handleThemeChange = (index: number) => setTheme(themeOptions[index]);
+  const handleTopBannerToggle = (value: boolean) => {
+    setShowTopHomeBanner(value);
+    analyticsService.trackEvent('top_banner_toggle', { enabled: value });
+  };
   const handleCurrencyChange = (index: number) => {
     const next = (['EUR', 'USD', 'GBP'] as const)[index];
     setDisplayCurrency(next);
+    analyticsService.trackEvent('currency_changed', { currency: next });
   };
   const handleCountrySelect = (c: Country) => onboarding.setCountry(c.code, c.currency);
+  const handleCountrySelection = (c: Country) => {
+    handleCountrySelect(c);
+    analyticsService.trackEvent('country_changed', { country_code: c.code });
+  };
 
   const handleClearHistory = () => {
     Alert.alert('Effacer l\'historique', 'Êtes-vous sûr ?', [
@@ -87,14 +97,20 @@ export function SettingsScreen() {
 
   const handleRemoveAdsFor30Min = () => {
     void unlockAdFree();
+    analyticsService.trackEvent('unlock_adfree_requested', { source: 'settings' });
   };
 
   const handleAdvancedModeChange = (enabled: boolean) => {
     if (enabled && !advancedGate.allowed) {
       setUnlockAdvancedVisible(true);
+      analyticsService.trackEvent('feature_locked_tapped', {
+        feature: 'advanced_options',
+        source: 'settings_toggle',
+      });
       return;
     }
     setSalaryMode(enabled ? 'advanced' : 'simple');
+    analyticsService.trackEvent('mode_changed', { mode: enabled ? 'advanced' : 'simple' });
   };
 
   const handleRate = () => {
@@ -130,7 +146,7 @@ export function SettingsScreen() {
                     borderColor: c.code === onboarding.country ? theme.primary : theme.border,
                   },
                 ]}
-                onPress={() => handleCountrySelect(c)}
+                onPress={() => handleCountrySelection(c)}
               >
                 <Text style={styles.countryChipFlag}>{c.flag}</Text>
                 <Text style={[styles.countryChipText, { color: theme.text }]} numberOfLines={1}>
@@ -165,7 +181,7 @@ export function SettingsScreen() {
             label="Banner haut (A/B)"
             description="Activer un second banner sur l'écran principal"
             value={showTopHomeBanner}
-            onValueChange={setShowTopHomeBanner}
+            onValueChange={handleTopBannerToggle}
           />
           <View style={styles.buttonGroup}>
             <AppSwitchRow

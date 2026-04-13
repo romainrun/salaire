@@ -2,6 +2,7 @@ import { Alert } from 'react-native';
 import { useCallback, useRef } from 'react';
 import { adService } from './adService';
 import { usePremiumStore } from '../../store/premiumStore';
+import { analyticsService } from '../analytics/analyticsService';
 
 const DEFAULT_REWARD_MINUTES = 30;
 const TAP_DEBOUNCE_MS = 800;
@@ -25,9 +26,15 @@ export function useRewardedAd() {
   }, []);
 
   const showRewardedWithRetry = useCallback(
-    async (onReward: () => void) => {
+    async (onReward: () => void, context: string) => {
+      analyticsService.trackEvent('rewarded_attempt', {
+        context,
+        supported: adService.isSupported(),
+        ready: adService.isRewardedReady(),
+      });
       if (!adService.isSupported()) {
         showUnavailableAlert('Les publicités récompensées ne sont pas disponibles sur cette plateforme.');
+        analyticsService.trackEvent('rewarded_result', { context, result: 'skipped', reason: 'unsupported' });
         return 'skipped' as const;
       }
       if (!adService.isRewardedReady()) {
@@ -35,12 +42,16 @@ export function useRewardedAd() {
       }
       const firstTry = await adService.tryShowRewarded(onReward);
       if (firstTry === 'rewarded') {
+        analyticsService.trackEvent('rewarded_result', { context, result: firstTry });
         return firstTry;
       }
       if (firstTry === 'error' || firstTry === 'timeout') {
         adService.preloadRewarded();
-        return adService.tryShowRewarded(onReward);
+        const retryResult = await adService.tryShowRewarded(onReward);
+        analyticsService.trackEvent('rewarded_result', { context, result: retryResult, retry: 1 });
+        return retryResult;
       }
+      analyticsService.trackEvent('rewarded_result', { context, result: firstTry });
       return firstTry;
     },
     [showUnavailableAlert]
@@ -51,7 +62,7 @@ export function useRewardedAd() {
       if (shouldDebounce()) return 'skipped' as const;
       const result = await showRewardedWithRetry(() => {
         unlockFeatureForMinutes(featureKey, DEFAULT_REWARD_MINUTES);
-      });
+      }, `unlock_feature_${featureKey}`);
       if (result === 'skipped') {
         showUnavailableAlert(
           'Vérifie ta connexion internet puis réessaie dans un instant.'
@@ -71,7 +82,7 @@ export function useRewardedAd() {
     if (shouldDebounce()) return 'skipped' as const;
     const result = await showRewardedWithRetry(() => {
       setAdFreeForMinutes(DEFAULT_REWARD_MINUTES);
-    });
+    }, 'unlock_ad_free');
     if (result === 'skipped') {
       showUnavailableAlert(
         'Vérifie ta connexion internet puis réessaie dans un instant.'
