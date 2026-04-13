@@ -66,33 +66,33 @@ export const ResultGrid = React.memo(function ResultGrid({
 
 const styles = StyleSheet.create({
   container: { width: '100%' },
-  periodSection: { marginBottom: 8 },
+  periodSection: { marginBottom: 6 },
   periodLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginBottom: 5,
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
   row: {
     flexDirection: 'row',
     width: '100%',
-    gap: 8,
+    gap: 6,
   },
   col: {
     flex: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     borderWidth: 1,
   },
   label: {
-    fontSize: 11,
-    marginBottom: 3,
+    fontSize: 10,
+    marginBottom: 2,
     fontWeight: '600',
   },
   value: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
   },
 });

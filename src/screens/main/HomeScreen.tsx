@@ -30,7 +30,6 @@ import { getCountryByCode, getSmicForCountry } from '../../data';
 import { formatCurrency } from '../../utils/format';
 import { parseSalaryInput } from '../../utils/parseSalaryInput';
 import { formatShareText } from '../../features/share/formatShareText';
-import { getSmartSuggestion } from '../../features/salary/getSmartSuggestion';
 import { useHistory, type SortMode } from '../../features/history/useHistory';
 import { APP_NAME, LABELS } from '../../constants/appName';
 import type { SalaryResults } from '../../types';
@@ -72,7 +71,6 @@ export function HomeScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const inputYRef = useRef(0);
   const gridYRef = useRef(0);
-  const suggestionFade = useRef(new Animated.Value(0)).current;
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [breakdownVisible, setBreakdownVisible] = useState(false);
   const [quickMode, setQuickMode] = useState(false);
@@ -99,19 +97,6 @@ export function HomeScreen() {
   useEffect(() => {
     setIsUserTyping(keyboardVisible);
   }, [keyboardVisible, setIsUserTyping]);
-
-  const suggestion = useMemo(
-    () => getSmartSuggestion(results.netMonthly, results.grossMonthly, country),
-    [results.netMonthly, results.grossMonthly, country]
-  );
-
-  useEffect(() => {
-    Animated.timing(suggestionFade, {
-      toValue: suggestion ? 1 : 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [suggestion, suggestionFade]);
 
   const openKeyboard = useCallback(() => setKeyboardVisible(true), []);
   const closeKeyboard = useCallback(() => setKeyboardVisible(false), []);
@@ -350,18 +335,6 @@ export function HomeScreen() {
             </AppCard>
           )}
 
-          {suggestion && results.grossMonthly > 0 && (
-            <Animated.View style={{ opacity: suggestionFade }}>
-              <AppCard style={{ borderColor: theme.primary + '40' }}>
-                <Text style={[styles.suggestionFlag]}>{suggestion.flag}</Text>
-                <Text style={[styles.suggestionCountry, { color: theme.text }]}>{suggestion.countryName}</Text>
-                <Text style={[styles.suggestionDiff, { color: theme.success }]}>
-                  +{formatCurrency(suggestion.difference, symbol)}/mois net
-                </Text>
-              </AppCard>
-            </Animated.View>
-          )}
-
           <View style={styles.controlsRow}>
             <SegmentedControl
               values={[LABELS.gross, LABELS.net]}
@@ -505,9 +478,6 @@ const styles = StyleSheet.create({
   summaryValue: { fontSize: 20, fontWeight: '900' },
   detailBtn: { marginTop: 8, paddingVertical: 8, borderTopWidth: 1, alignItems: 'center' },
   detailBtnText: { fontSize: 13, fontWeight: '700' },
-  suggestionFlag: { fontSize: 24, textAlign: 'center' },
-  suggestionCountry: { fontSize: 14, fontWeight: '700', textAlign: 'center', marginTop: 2 },
-  suggestionDiff: { fontSize: 16, fontWeight: '800', textAlign: 'center', marginTop: 2 },
   lockHint: { fontSize: 12, marginTop: 8, fontWeight: '600' },
   controlsRow: { width: '100%', marginBottom: 8 },
   inputInner: { padding: 12 },
