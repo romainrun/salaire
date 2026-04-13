@@ -92,6 +92,10 @@ export const CustomKeyboard = React.memo(function CustomKeyboard({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onClose();
   }, [onClose]);
+  const handleSubmit = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onSubmit?.();
+  }, [onSubmit]);
 
   const quickAmounts = useMemo(() => [
     { label: '+100', value: 100 },
@@ -127,18 +131,24 @@ export const CustomKeyboard = React.memo(function CustomKeyboard({
             paddingBottom: bottomPad,
             transform: [{ translateY: slideAnim }],
           },
+          !visible && styles.hiddenContainer,
         ]}
       >
-        <TouchableOpacity
-          onPress={handleClose}
-          activeOpacity={0.7}
-          style={[styles.closeBar, { borderBottomColor: theme.border }]}
-        >
-          <View style={styles.closeBarInner}>
-            <Text style={[styles.closeArrow, { color: theme.textSecondary }]}>↓</Text>
-            <Text style={[styles.closeLabel, { color: theme.textSecondary }]}>Fermer</Text>
-          </View>
-        </TouchableOpacity>
+        <View style={[styles.closeBar, { borderBottomColor: theme.border }]}>
+          <TouchableOpacity onPress={handleClose} activeOpacity={0.7} style={styles.closeLeft}>
+            <View style={styles.closeBarInner}>
+              <Text style={[styles.closeArrow, { color: theme.textSecondary }]}>↓</Text>
+              <Text style={[styles.closeLabel, { color: theme.textSecondary }]}>Fermer</Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleSubmit}
+            activeOpacity={0.8}
+            style={[styles.submitHeaderBtn, { backgroundColor: theme.primary }]}
+          >
+            <Text style={styles.submitHeaderText}>OK</Text>
+          </TouchableOpacity>
+        </View>
 
         <ScrollView
           horizontal
@@ -221,18 +231,6 @@ export const CustomKeyboard = React.memo(function CustomKeyboard({
             </View>
           ))}
         </View>
-        <View style={styles.submitRow}>
-          <TouchableOpacity
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              onSubmit?.();
-            }}
-            activeOpacity={0.8}
-            style={[styles.submitBtn, { backgroundColor: theme.primary }]}
-          >
-            <Text style={styles.submitText}>Valider</Text>
-          </TouchableOpacity>
-        </View>
       </Animated.View>
     </>
   );
@@ -246,10 +244,26 @@ const styles = StyleSheet.create({
     borderTopWidth: 1, borderTopLeftRadius: 16, borderTopRightRadius: 16,
     zIndex: 20, elevation: 20,
   },
-  closeBar: { paddingVertical: 10, borderBottomWidth: 1, alignItems: 'center' },
+  hiddenContainer: { opacity: 0 },
+  closeBar: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+  },
+  closeLeft: { flex: 1 },
   closeBarInner: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   closeArrow: { fontSize: 16, fontWeight: '700' },
   closeLabel: { fontSize: 13, fontWeight: '600' },
+  submitHeaderBtn: {
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginLeft: 10,
+  },
+  submitHeaderText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
   quickRow: { maxHeight: 38, marginTop: 6 },
   quickContent: { paddingHorizontal: 10, gap: 6, alignItems: 'center' },
   quickBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
@@ -264,7 +278,4 @@ const styles = StyleSheet.create({
   keyRow: { flexDirection: 'row', gap: 6 },
   key: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 10 },
   keyText: { fontSize: 22, fontWeight: '700' },
-  submitRow: { paddingHorizontal: 12, paddingTop: 8 },
-  submitBtn: { alignItems: 'center', justifyContent: 'center', borderRadius: 10, paddingVertical: 12 },
-  submitText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
 });

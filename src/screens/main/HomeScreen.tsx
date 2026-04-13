@@ -42,6 +42,8 @@ import { useUIStore } from '../../store/uiStore';
 import { usePremiumStore } from '../../store/premiumStore';
 import { getFeatureGate } from '../../features/premium/useFeatureGate';
 
+const KEYBOARD_VISIBLE_OFFSET = 240;
+
 export function HomeScreen() {
   const { theme } = useTheme();
   const inputValue = useSalaryStore((s) => s.inputValue);
@@ -135,9 +137,18 @@ export function HomeScreen() {
 
   const scrollToFocused = useCallback((y: number) => {
     setTimeout(() => {
-      scrollRef.current?.scrollTo({ y: Math.max(0, y - 60), animated: true });
+      scrollRef.current?.scrollTo({ y: Math.max(0, y - KEYBOARD_VISIBLE_OFFSET), animated: true });
     }, 100);
   }, []);
+
+  useEffect(() => {
+    if (!keyboardVisible) return;
+    if (activeField === 'input') {
+      scrollToFocused(inputYRef.current);
+      return;
+    }
+    scrollToFocused(gridYRef.current);
+  }, [activeField, keyboardVisible, scrollToFocused]);
 
   const handleTypeChange = useCallback((i: number) => setInputType(i === 0 ? 'gross' : 'net'), [setInputType]);
   const handlePeriodChange = useCallback((i: number) => setPeriod((['monthly', 'yearly', 'daily'] as const)[i]), [setPeriod]);
@@ -301,22 +312,26 @@ export function HomeScreen() {
           </View>
 
           <View style={styles.summaryRow}>
-            <AppCard style={styles.summaryCard}>
-              <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>{LABELS.grossMonthly}</Text>
-              <AnimatedNumber
-                value={results.grossMonthly}
-                symbol={symbol}
-                style={[styles.summaryValue, { color: theme.text }]}
-              />
-            </AppCard>
-            <AppCard style={styles.summaryCard}>
-              <Text style={[styles.summaryLabel, { color: theme.primary }]}>{LABELS.netMonthly}</Text>
-              <AnimatedNumber
-                value={results.netMonthly}
-                symbol={symbol}
-                style={[styles.summaryValue, { color: theme.primary }]}
-              />
-            </AppCard>
+            <View style={styles.summaryCol}>
+              <AppCard style={styles.summaryCard}>
+                <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>{LABELS.grossMonthly}</Text>
+                <AnimatedNumber
+                  value={results.grossMonthly}
+                  symbol={symbol}
+                  style={[styles.summaryValue, { color: theme.text }]}
+                />
+              </AppCard>
+            </View>
+            <View style={styles.summaryCol}>
+              <AppCard style={styles.summaryCard}>
+                <Text style={[styles.summaryLabel, { color: theme.primary }]}>{LABELS.netMonthly}</Text>
+                <AnimatedNumber
+                  value={results.netMonthly}
+                  symbol={symbol}
+                  style={[styles.summaryValue, { color: theme.primary }]}
+                />
+              </AppCard>
+            </View>
           </View>
 
           {results.grossMonthly > 0 && (
@@ -483,8 +498,9 @@ const styles = StyleSheet.create({
   quickBtn: { borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   quickBtnText: { fontSize: 16 },
   headerIcon: { fontSize: 17, padding: 4 },
-  summaryRow: { flexDirection: 'row', gap: 8, marginBottom: 0 },
-  summaryCard: { flex: 1, marginBottom: 8 },
+  summaryRow: { flexDirection: 'row', gap: 8, marginBottom: 0, width: '100%' },
+  summaryCol: { flex: 1 },
+  summaryCard: { marginBottom: 8 },
   summaryLabel: { fontSize: 11, fontWeight: '600', marginBottom: 2 },
   summaryValue: { fontSize: 20, fontWeight: '900' },
   detailBtn: { marginTop: 8, paddingVertical: 8, borderTopWidth: 1, alignItems: 'center' },
