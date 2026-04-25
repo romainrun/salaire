@@ -34,8 +34,6 @@ export function SettingsScreen() {
   const { theme } = useTheme();
   const uiTheme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
-  const notificationsEnabled = useUIStore((s) => s.notificationsEnabled);
-  const setNotificationsEnabled = useUIStore((s) => s.setNotificationsEnabled);
   const ratePromptSeen = useUIStore((s) => s.ratePromptSeen);
   const setRatePromptSeen = useUIStore((s) => s.setRatePromptSeen);
   const displayCurrency = useSalaryStore((s) => s.displayCurrency);
@@ -120,15 +118,6 @@ export function SettingsScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <Text style={[styles.title, { color: theme.text }]}>{LABELS.settings}</Text>
 
-        <SettingsSection title="Notifications">
-          <AppSwitchRow
-            label="Notifications"
-            description="Recevoir des rappels"
-            value={notificationsEnabled}
-            onValueChange={setNotificationsEnabled}
-          />
-        </SettingsSection>
-
         <SettingsSection title="Pays">
           <View style={styles.countryGrid}>
             {countries.slice(0, 8).map((c) => (
@@ -171,7 +160,7 @@ export function SettingsScreen() {
           </View>
         </SettingsSection>
 
-        <SettingsSection title="Monétisation">
+        <SettingsSection title="Fonctionnalités">
           {ADS_DISABLED_OVERRIDE ? (
             <Text style={[styles.overrideHint, { color: theme.warning }]}>
               Mode test activé: pubs désactivées et fonctionnalités débloquées.
@@ -180,7 +169,7 @@ export function SettingsScreen() {
           <View style={styles.buttonGroup}>
             <AppSwitchRow
               label="Mode avancé"
-              description="Débloquer avec une publicité"
+              description="Simulations détaillées avec paramètres avancés (charges, variantes et scénarios)."
               value={salaryMode === 'advanced'}
               onValueChange={handleAdvancedModeChange}
             />
