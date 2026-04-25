@@ -126,13 +126,12 @@ jobs:
 
       - name: Upload to Play Store
         if: contains(github.ref, '_Store') || contains(github.ref, '_Android')
-        run: |
-          echo '${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}' > google-sa.json
-          npx @nicepkg/gp-upload \
-            --key google-sa.json \
-            --package com.kns.salary \
-            --aab Salaire-android.aab \
-            --track production
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.kns.salary
+          releaseFiles: Salaire-android.aab
+          track: production
 
   store-release-ios:
     if: contains(github.ref, '_Store') || contains(github.ref, '_iOS')
