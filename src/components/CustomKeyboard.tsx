@@ -14,7 +14,7 @@ import * as Haptics from 'expo-haptics';
 import { useTheme } from '../features/theme/ThemeProvider';
 import { formatCurrency } from '../utils/format';
 
-const KEYBOARD_HEIGHT = 380;
+const KEYBOARD_HEIGHT = 330;
 const ANIM_DURATION = 250;
 
 interface CustomKeyboardProps {
@@ -284,18 +284,18 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   submitHeaderText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
-  quickRow: { maxHeight: 38, marginTop: 6 },
+  quickRow: { maxHeight: 34, marginTop: 4 },
   quickContent: { paddingHorizontal: 10, gap: 6, alignItems: 'center' },
-  quickBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
-  quickBtnText: { fontSize: 12, fontWeight: '700' },
-  smicBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, borderWidth: 1.5 },
-  smicBtnText: { fontSize: 12, fontWeight: '800' },
-  suggestionsRow: { maxHeight: 36, marginTop: 5 },
+  quickBtn: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 8, borderWidth: 1 },
+  quickBtnText: { fontSize: 11, fontWeight: '700' },
+  smicBtn: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8, borderWidth: 1.5 },
+  smicBtnText: { fontSize: 11, fontWeight: '800' },
+  suggestionsRow: { maxHeight: 32, marginTop: 4 },
   suggestionsContent: { paddingHorizontal: 10, gap: 6, alignItems: 'center' },
-  suggestion: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1 },
-  suggestionText: { fontSize: 12, fontWeight: '700' },
-  keysGrid: { marginTop: 8, paddingHorizontal: 12, gap: 6 },
+  suggestion: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
+  suggestionText: { fontSize: 11, fontWeight: '700' },
+  keysGrid: { marginTop: 6, paddingHorizontal: 10, gap: 5 },
   keyRow: { flexDirection: 'row', gap: 6 },
-  key: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 10 },
-  keyText: { fontSize: 22, fontWeight: '700' },
+  key: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 9, borderRadius: 9 },
+  keyText: { fontSize: 19, fontWeight: '700' },
 });

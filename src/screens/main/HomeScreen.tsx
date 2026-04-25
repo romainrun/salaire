@@ -13,6 +13,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../features/theme/ThemeProvider';
+import { useNavigation } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useSalaryStore } from '../../store/salaryStore';
 import { useOnboardingStore } from '../../store/onboardingStore';
 import { AppCard } from '../../components/AppCard';
@@ -42,11 +44,13 @@ import { useUIStore } from '../../store/uiStore';
 import { usePremiumStore } from '../../store/premiumStore';
 import { getFeatureGate } from '../../features/premium/useFeatureGate';
 import { analyticsService } from '../../features/analytics/analyticsService';
+import type { MainTabParamList } from '../../navigation/types';
 
 const KEYBOARD_VISIBLE_MARGIN = 20;
 
 export function HomeScreen() {
   const { theme } = useTheme();
+  const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
   const inputValue = useSalaryStore((s) => s.inputValue);
   const inputType = useSalaryStore((s) => s.inputType);
   const period = useSalaryStore((s) => s.period);
@@ -91,7 +95,6 @@ export function HomeScreen() {
     load: loadHistory,
     toggleFavorite,
   } = useHistory(historySortMode);
-  const showTopHomeBanner = useUIStore((s) => s.showTopHomeBanner);
   const setIsUserTyping = useUIStore((s) => s.setIsUserTyping);
   const isHistoryRewardedUnlocked = usePremiumStore((s) => s.isFeatureUnlocked('history'));
   const { tryShowFirstValueInterstitial, tryShowContextualInterstitial, trackActionAndMaybeShowInterstitial } =
@@ -301,11 +304,16 @@ export function HomeScreen() {
           contentContainerStyle={[styles.scroll, { paddingBottom: keyboardVisible ? keyboardHeight + 12 : 6 }]}
           onLayout={handleScrollLayout}
         >
-          {showTopHomeBanner ? <AdBanner topSpacing={2} /> : null}
           <View style={styles.headerRow}>
             <View style={styles.headerLeft}>
               <Text style={[styles.appTitle, { color: theme.text }]}>{APP_NAME}</Text>
-              <Text style={styles.flag}>{countryData?.flag}</Text>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Settings')}
+                activeOpacity={0.8}
+                style={styles.flagButton}
+              >
+                <Text style={styles.flag}>{countryData?.flag}</Text>
+              </TouchableOpacity>
             </View>
             <View style={styles.headerActions}>
               <PressableScale
@@ -501,6 +509,7 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   appTitle: { fontSize: 22, fontWeight: '800' },
+  flagButton: { paddingHorizontal: 2, paddingVertical: 2 },
   flag: { fontSize: 18 },
   headerActions: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   quickBtn: { borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },

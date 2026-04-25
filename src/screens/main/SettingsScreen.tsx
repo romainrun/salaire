@@ -18,7 +18,7 @@ import { useRewardedAd } from '../../features/ads/useRewardedAd';
 import { useFeatureGate } from '../../features/premium/useFeatureGate';
 import { AdUnlockModal } from '../../features/unlock/AdUnlockModal';
 import { analyticsService } from '../../features/analytics/analyticsService';
-import { ADS_DISABLED_OVERRIDE, FORCE_TOP_BANNER_AB_IN_PROD } from '../../config/runtimeFlags';
+import { ADS_DISABLED_OVERRIDE } from '../../config/runtimeFlags';
 
 function SettingsSection({ title, children }: { title: string; children: React.ReactNode }) {
   const { theme } = useTheme();
@@ -38,8 +38,6 @@ export function SettingsScreen() {
   const setNotificationsEnabled = useUIStore((s) => s.setNotificationsEnabled);
   const ratePromptSeen = useUIStore((s) => s.ratePromptSeen);
   const setRatePromptSeen = useUIStore((s) => s.setRatePromptSeen);
-  const showTopHomeBanner = useUIStore((s) => s.showTopHomeBanner);
-  const setShowTopHomeBanner = useUIStore((s) => s.setShowTopHomeBanner);
   const displayCurrency = useSalaryStore((s) => s.displayCurrency);
   const setDisplayCurrency = useSalaryStore((s) => s.setDisplayCurrency);
 
@@ -59,13 +57,6 @@ export function SettingsScreen() {
   const themeIndex = themeOptions.indexOf(uiTheme);
 
   const handleThemeChange = (index: number) => setTheme(themeOptions[index]);
-  const handleTopBannerToggle = (value: boolean) => {
-    if (FORCE_TOP_BANNER_AB_IN_PROD) {
-      return;
-    }
-    setShowTopHomeBanner(value);
-    analyticsService.trackEvent('top_banner_toggle', { enabled: value });
-  };
   const handleCurrencyChange = (index: number) => {
     const next = (['EUR', 'USD', 'GBP'] as const)[index];
     setDisplayCurrency(next);
@@ -181,16 +172,6 @@ export function SettingsScreen() {
         </SettingsSection>
 
         <SettingsSection title="Monétisation">
-          <AppSwitchRow
-            label="Banner haut (A/B)"
-            description={
-              FORCE_TOP_BANNER_AB_IN_PROD
-                ? 'Actif en production (forcé)'
-                : 'Activer un second banner sur l\'écran principal'
-            }
-            value={showTopHomeBanner}
-            onValueChange={handleTopBannerToggle}
-          />
           {ADS_DISABLED_OVERRIDE ? (
             <Text style={[styles.overrideHint, { color: theme.warning }]}>
               Mode test activé: pubs désactivées et fonctionnalités débloquées.
