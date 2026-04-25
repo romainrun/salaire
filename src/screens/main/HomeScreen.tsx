@@ -8,6 +8,7 @@ import {
   Share,
   BackHandler,
   Animated,
+  LayoutChangeEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -42,7 +43,7 @@ import { usePremiumStore } from '../../store/premiumStore';
 import { getFeatureGate } from '../../features/premium/useFeatureGate';
 import { analyticsService } from '../../features/analytics/analyticsService';
 
-const KEYBOARD_VISIBLE_OFFSET = 240;
+const KEYBOARD_VISIBLE_MARGIN = 20;
 
 export function HomeScreen() {
   const { theme } = useTheme();
@@ -72,6 +73,8 @@ export function HomeScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const inputYRef = useRef(0);
   const gridYRef = useRef(0);
+  const [scrollViewHeight, setScrollViewHeight] = useState(0);
+  const [keyboardHeight, setKeyboardHeight] = useState(380);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [breakdownVisible, setBreakdownVisible] = useState(false);
   const [quickMode, setQuickMode] = useState(false);
@@ -121,11 +124,17 @@ export function HomeScreen() {
     return () => handler.remove();
   }, [keyboardVisible, breakdownVisible, quickMode]);
 
+  const handleScrollLayout = useCallback((event: LayoutChangeEvent) => {
+    setScrollViewHeight(event.nativeEvent.layout.height);
+  }, []);
+
   const scrollToFocused = useCallback((y: number) => {
     setTimeout(() => {
-      scrollRef.current?.scrollTo({ y: Math.max(0, y - KEYBOARD_VISIBLE_OFFSET), animated: true });
+      const effectiveHeight = Math.max(1, scrollViewHeight - keyboardHeight);
+      const targetY = Math.max(0, y - effectiveHeight + KEYBOARD_VISIBLE_MARGIN);
+      scrollRef.current?.scrollTo({ y: targetY, animated: true });
     }, 100);
-  }, []);
+  }, [keyboardHeight, scrollViewHeight]);
 
   useEffect(() => {
     if (!keyboardVisible) return;
@@ -286,7 +295,12 @@ export function HomeScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       <View style={styles.flex}>
-        <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        <ScrollView
+          ref={scrollRef}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[styles.scroll, { paddingBottom: keyboardVisible ? keyboardHeight + 12 : 6 }]}
+          onLayout={handleScrollLayout}
+        >
           {showTopHomeBanner ? <AdBanner topSpacing={2} /> : null}
           <View style={styles.headerRow}>
             <View style={styles.headerLeft}>
@@ -442,6 +456,7 @@ export function HomeScreen() {
           visible={keyboardVisible}
           onClose={closeKeyboard}
           onSubmit={closeKeyboard}
+          onHeightChange={setKeyboardHeight}
           onKeyPress={handleKeyPress}
           onDelete={handleDelete}
           recentValues={recentValues}

@@ -1,5 +1,14 @@
 import React, { useCallback, useMemo, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  Animated,
+  Platform,
+  LayoutChangeEvent,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../features/theme/ThemeProvider';
@@ -12,6 +21,7 @@ interface CustomKeyboardProps {
   visible: boolean;
   onClose: () => void;
   onSubmit?: () => void;
+  onHeightChange?: (height: number) => void;
   onKeyPress: (key: string) => void;
   onDelete: () => void;
   recentValues?: number[];
@@ -56,6 +66,7 @@ export const CustomKeyboard = React.memo(function CustomKeyboard({
   visible,
   onClose,
   onSubmit,
+  onHeightChange,
   onKeyPress,
   onDelete,
   recentValues = [],
@@ -88,6 +99,10 @@ export const CustomKeyboard = React.memo(function CustomKeyboard({
     }
   }, [visible, slideAnim, backdropAnim]);
 
+  useEffect(() => {
+    onHeightChange?.(visible ? KEYBOARD_HEIGHT + bottomPad : 0);
+  }, [bottomPad, onHeightChange, visible]);
+
   const handleClose = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onClose();
@@ -96,6 +111,10 @@ export const CustomKeyboard = React.memo(function CustomKeyboard({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onSubmit?.();
   }, [onSubmit]);
+  const handleKeyboardLayout = useCallback((event: LayoutChangeEvent) => {
+    if (!visible) return;
+    onHeightChange?.(event.nativeEvent.layout.height);
+  }, [onHeightChange, visible]);
 
   const quickAmounts = useMemo(() => [
     { label: '+100', value: 100 },
@@ -123,6 +142,7 @@ export const CustomKeyboard = React.memo(function CustomKeyboard({
 
       <Animated.View
         pointerEvents={visible ? 'auto' : 'none'}
+        onLayout={handleKeyboardLayout}
         style={[
           styles.container,
           {
