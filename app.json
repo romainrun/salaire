@@ -22,9 +22,11 @@
       }
     },
     "android": {
+      "icon": "./assets/icon.png",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
+        "monochromeImage": "./assets/adaptive-icon-monochrome.png",
         "backgroundColor": "#f6f4fd"
       },
       "edgeToEdgeEnabled": true,
