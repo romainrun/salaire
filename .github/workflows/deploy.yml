@@ -143,11 +143,6 @@ jobs:
         with:
           node-version: 20
 
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: 3.2
-
       - name: Install dependencies
         run: npm install
 
@@ -157,29 +152,36 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Decode ASC API Key
+      - name: Build iOS IPA on EAS
         run: |
-          echo "${{ secrets.ASC_API_KEY_P8_B64 }}" | base64 -d > AuthKey.p8
-
-      - name: Build iOS IPA
-        run: |
-          CI=1 eas build --platform ios --profile production --local --output Salaire-ios.ipa
+          CI=1 eas build --platform ios --profile production --non-interactive --wait --json > ios-build.json
         env:
           EXPO_EAS_PROJECT_ID: 6ceb6c7f-7f85-43c8-be7f-028ef8e51851
           EXPO_OWNER: krorun
           EXPO_PUBLIC_GITHUB_DISABLE_ADS: ${{ vars.GITHUB_DISABLE_ADS }}
+
+      - name: Resolve IPA artifact URL
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const payload = JSON.parse(fs.readFileSync('ios-build.json', 'utf8'));
+          const build = Array.isArray(payload) ? payload[0] : payload;
+          const artifactUrl =
+            build?.artifacts?.applicationArchiveUrl ||
+            build?.artifacts?.buildUrl;
+          if (!artifactUrl) {
+            console.error('Unable to resolve iOS IPA URL from EAS build output.');
+            process.exit(1);
+          }
+          fs.appendFileSync(process.env.GITHUB_ENV, `IOS_IPA_URL=${artifactUrl}\n`);
+          NODE
+
+      - name: Download iOS IPA
+        run: |
+          curl -L "$IOS_IPA_URL" --output Salaire-ios.ipa
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: Salaire-ios.ipa
           path: Salaire-ios.ipa
-
-      - name: Submit to App Store
-        if: contains(github.ref, '_Store') || contains(github.ref, '_iOS')
-        run: |
-          xcrun altool --upload-app \
-            --type ios \
-            --file Salaire-ios.ipa \
-            --apiKey ${{ secrets.ASC_API_KEY_ID }} \
-            --apiIssuer ${{ secrets.ASC_API_ISSUER_ID }}
