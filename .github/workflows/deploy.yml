@@ -185,3 +185,46 @@ jobs:
         with:
           name: Salaire-ios.ipa
           path: Salaire-ios.ipa
+
+      - name: Decode ASC API Key
+        run: |
+          echo "${{ secrets.ASC_API_KEY_P8_B64 }}" | base64 -d > AuthKey.p8
+
+      - name: Submit IPA to App Store Connect
+        run: |
+          if [ -n "${ASC_APP_ID}" ] && [ -n "${APPLE_TEAM_ID}" ]; then
+            CI=1 eas submit \
+              --platform ios \
+              --path Salaire-ios.ipa \
+              --non-interactive \
+              --wait \
+              --asc-api-key-path AuthKey.p8 \
+              --asc-api-key-id "${{ secrets.ASC_API_KEY_ID }}" \
+              --asc-api-key-issuer-id "${{ secrets.ASC_API_ISSUER_ID }}" \
+              --asc-app-id "${ASC_APP_ID}" \
+              --apple-team-id "${APPLE_TEAM_ID}"
+          elif [ -n "${ASC_APP_ID}" ]; then
+            CI=1 eas submit \
+              --platform ios \
+              --path Salaire-ios.ipa \
+              --non-interactive \
+              --wait \
+              --asc-api-key-path AuthKey.p8 \
+              --asc-api-key-id "${{ secrets.ASC_API_KEY_ID }}" \
+              --asc-api-key-issuer-id "${{ secrets.ASC_API_ISSUER_ID }}" \
+              --asc-app-id "${ASC_APP_ID}"
+          else
+            CI=1 eas submit \
+              --platform ios \
+              --path Salaire-ios.ipa \
+              --non-interactive \
+              --wait \
+              --asc-api-key-path AuthKey.p8 \
+              --asc-api-key-id "${{ secrets.ASC_API_KEY_ID }}" \
+              --asc-api-key-issuer-id "${{ secrets.ASC_API_ISSUER_ID }}"
+          fi
+        env:
+          EXPO_EAS_PROJECT_ID: 6ceb6c7f-7f85-43c8-be7f-028ef8e51851
+          EXPO_OWNER: krorun
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
