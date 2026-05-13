@@ -18,7 +18,8 @@
       "bundleIdentifier": "com.kns.salary",
       "infoPlist": {
         "GADApplicationIdentifier": "ca-app-pub-3137130387262789~7217717485",
-        "NSUserTrackingUsageDescription": "Cette autorisation permet d'afficher des offres plus pertinentes."
+        "NSUserTrackingUsageDescription": "Cette autorisation permet d'afficher des offres plus pertinentes.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
