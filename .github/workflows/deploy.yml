@@ -79,6 +79,9 @@ jobs:
   store-release-android:
     if: contains(github.ref, '_Store') || contains(github.ref, '_Android')
     runs-on: ubuntu-latest
+    concurrency:
+      group: android-store-release-${{ github.repository }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
 
