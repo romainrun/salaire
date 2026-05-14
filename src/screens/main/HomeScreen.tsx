@@ -18,7 +18,6 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useSalaryStore } from '../../store/salaryStore';
 import { useOnboardingStore } from '../../store/onboardingStore';
 import { AppCard } from '../../components/AppCard';
-import { SegmentedControl } from '../../components/SegmentedControl';
 import { ResultGrid } from '../../components/ResultGrid';
 import { CustomKeyboard } from '../../components/CustomKeyboard';
 import { SalaryBreakdownModal } from '../../components/SalaryBreakdownModal';
@@ -61,7 +60,6 @@ export function HomeScreen() {
   const pasEnabled = useSalaryStore((s) => s.pasEnabled);
   const pasRate = useSalaryStore((s) => s.pasRate);
   const setInputValue = useSalaryStore((s) => s.setInputValue);
-  const setInputType = useSalaryStore((s) => s.setInputType);
   const setPeriod = useSalaryStore((s) => s.setPeriod);
   const setActiveField = useSalaryStore((s) => s.setActiveField);
   const updateFromField = useSalaryStore((s) => s.updateFromField);
@@ -76,14 +74,11 @@ export function HomeScreen() {
 
   const scrollRef = useRef<ScrollView>(null);
   const inputYRef = useRef(0);
-  const gridYRef = useRef(0);
   const [scrollViewHeight, setScrollViewHeight] = useState(0);
   const [keyboardHeight, setKeyboardHeight] = useState(380);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [breakdownVisible, setBreakdownVisible] = useState(false);
   const [quickMode, setQuickMode] = useState(false);
-  const [editingField, setEditingField] = useState<keyof SalaryResults | null>(null);
-  const [editBuffer, setEditBuffer] = useState('');
   const [historySortMode, setHistorySortMode] = useState<SortMode>('date');
   const [unlockModalVisible, setUnlockModalVisible] = useState(false);
   const [unlockTarget, setUnlockTarget] = useState<'history' | 'adFree'>('adFree');
@@ -104,6 +99,12 @@ export function HomeScreen() {
   useEffect(() => {
     setIsUserTyping(keyboardVisible);
   }, [keyboardVisible, setIsUserTyping]);
+
+  useEffect(() => {
+    if (period !== 'monthly') {
+      setPeriod('monthly');
+    }
+  }, [period, setPeriod]);
 
   const openKeyboard = useCallback(() => setKeyboardVisible(true), []);
   const closeKeyboard = useCallback(() => setKeyboardVisible(false), []);
@@ -141,71 +142,51 @@ export function HomeScreen() {
 
   useEffect(() => {
     if (!keyboardVisible) return;
-    if (activeField === 'input') {
-      scrollToFocused(inputYRef.current);
-      return;
-    }
-    scrollToFocused(gridYRef.current);
-  }, [activeField, keyboardVisible, scrollToFocused]);
-
-  const handleTypeChange = useCallback((i: number) => setInputType(i === 0 ? 'gross' : 'net'), [setInputType]);
-  const handlePeriodChange = useCallback((i: number) => setPeriod((['monthly', 'yearly', 'daily'] as const)[i]), [setPeriod]);
+    scrollToFocused(inputYRef.current);
+  }, [keyboardVisible, scrollToFocused]);
 
   const handleKeyPress = useCallback((key: string) => {
-    if (editingField) {
-      setEditBuffer((prev) => {
-        if (key === '.' && prev.includes('.')) return prev;
-        const newBuf = prev + key;
-        updateFromField(editingField, parseSalaryInput(newBuf));
-        return newBuf;
-      });
-      return;
-    }
     setInputValue(inputValue + key);
-  }, [editingField, inputValue, setInputValue, updateFromField]);
+  }, [inputValue, setInputValue]);
 
   const handleDelete = useCallback(() => {
-    if (editingField) {
-      setEditBuffer((prev) => {
-        const newBuf = prev.slice(0, -1);
-        updateFromField(editingField, parseSalaryInput(newBuf));
-        return newBuf;
-      });
-      return;
-    }
     setInputValue(inputValue.slice(0, -1));
-  }, [editingField, inputValue, setInputValue, updateFromField]);
+  }, [inputValue, setInputValue]);
 
-  const handleFieldPress = useCallback((field: keyof SalaryResults) => {
+  const handleTopInputPress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setEditingField(field);
-    setEditBuffer('');
-    updateFromField(field, 0);
-    setActiveField(field);
-    openKeyboard();
-    scrollToFocused(gridYRef.current);
-  }, [openKeyboard, scrollToFocused, setActiveField, updateFromField]);
-
-  const handleInputAreaPress = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setEditingField(null);
-    setEditBuffer('');
-    setInputValue('');
     setActiveField('input');
     openKeyboard();
     scrollToFocused(inputYRef.current);
-  }, [openKeyboard, scrollToFocused, setActiveField, setInputValue]);
+  }, [openKeyboard, scrollToFocused, setActiveField]);
+
+  const handleSwapInputType = useCallback(() => {
+    const nextType = inputType === 'gross' ? 'net' : 'gross';
+    const targetField: keyof SalaryResults = nextType === 'gross' ? 'grossMonthly' : 'netMonthly';
+    const targetValue = nextType === 'gross' ? results.grossMonthly : results.netMonthly;
+    updateFromField(targetField, targetValue);
+    setActiveField('input');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    openKeyboard();
+    scrollToFocused(inputYRef.current);
+  }, [
+    inputType,
+    openKeyboard,
+    results.grossMonthly,
+    results.netMonthly,
+    scrollToFocused,
+    setActiveField,
+    updateFromField,
+  ]);
 
   const handleRecentSelect = useCallback((val: number) => {
     setInputValue(val.toString());
-    setEditingField(null);
     setActiveField('input');
   }, [setActiveField, setInputValue]);
 
   const handleSmicPress = useCallback(() => {
     if (smicValue) {
       fillSmic(smicValue);
-      setEditingField(null);
     }
   }, [smicValue, fillSmic]);
 
@@ -289,7 +270,10 @@ export function HomeScreen() {
     }
   }, [unlockAdFree]);
 
-  const periodIndex = period === 'monthly' ? 0 : period === 'yearly' ? 1 : 2;
+  const editableLabel = inputType === 'gross' ? LABELS.grossMonthly : LABELS.netMonthly;
+  const editableValue = inputType === 'gross' ? results.grossMonthly : results.netMonthly;
+  const mirrorLabel = inputType === 'gross' ? LABELS.netMonthly : LABELS.grossMonthly;
+  const mirrorValue = inputType === 'gross' ? results.netMonthly : results.grossMonthly;
 
   if (quickMode) {
     return <QuickModeScreen onClose={() => setQuickMode(false)} />;
@@ -338,26 +322,39 @@ export function HomeScreen() {
             </View>
           </View>
 
-          <View style={styles.summaryRow}>
+          <View
+            style={styles.summaryRow}
+            onLayout={(e) => {
+              inputYRef.current = e.nativeEvent.layout.y;
+            }}
+          >
             <View style={styles.summaryCol}>
-              <AppCard style={styles.summaryCard}>
-                <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>{LABELS.grossMonthly}</Text>
-                <AnimatedNumber
-                  value={results.grossMonthly}
-                  symbol={symbol}
-                  style={[styles.summaryValue, { color: theme.text }]}
-                />
-              </AppCard>
+              <TouchableOpacity onPress={handleTopInputPress} activeOpacity={0.9}>
+                <EditableFieldWrapper isActive={activeField === 'input'}>
+                  <AppCard style={styles.summaryCard}>
+                    <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>{editableLabel}</Text>
+                    <AnimatedNumber
+                      value={editableValue}
+                      symbol={symbol}
+                      style={[styles.summaryValue, { color: theme.text }]}
+                    />
+                    <Text style={[styles.summaryHint, { color: theme.textMuted }]}>Touchez pour modifier</Text>
+                  </AppCard>
+                </EditableFieldWrapper>
+              </TouchableOpacity>
             </View>
             <View style={styles.summaryCol}>
-              <AppCard style={styles.summaryCard}>
-                <Text style={[styles.summaryLabel, { color: theme.primary }]}>{LABELS.netMonthly}</Text>
-                <AnimatedNumber
-                  value={results.netMonthly}
-                  symbol={symbol}
-                  style={[styles.summaryValue, { color: theme.primary }]}
-                />
-              </AppCard>
+              <TouchableOpacity onPress={handleSwapInputType} activeOpacity={0.9}>
+                <AppCard style={styles.summaryCard}>
+                  <Text style={[styles.summaryLabel, { color: theme.primary }]}>{mirrorLabel}</Text>
+                  <AnimatedNumber
+                    value={mirrorValue}
+                    symbol={symbol}
+                    style={[styles.summaryValue, { color: theme.primary }]}
+                  />
+                  <Text style={[styles.summaryHint, { color: theme.primary }]}>Utiliser comme base</Text>
+                </AppCard>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -377,51 +374,11 @@ export function HomeScreen() {
             </AppCard>
           )}
 
-          <View style={styles.controlsRow}>
-            <SegmentedControl
-              values={[LABELS.gross, LABELS.net]}
-              selectedIndex={inputType === 'gross' ? 0 : 1}
-              onChange={handleTypeChange}
-            />
-          </View>
-          <View style={styles.controlsRow}>
-            <SegmentedControl
-              values={[LABELS.monthly, LABELS.yearly, LABELS.daily]}
-              selectedIndex={periodIndex}
-              onChange={handlePeriodChange}
-            />
-          </View>
+          <View style={{ height: 4 }} />
 
-          <View
-            onLayout={(e) => {
-              inputYRef.current = e.nativeEvent.layout.y;
-            }}
-          >
-            <TouchableOpacity onPress={handleInputAreaPress} activeOpacity={0.9}>
-              <EditableFieldWrapper isActive={activeField === 'input'}>
-                <View style={styles.inputInner}>
-                  <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>
-                    {`Objectif ${inputType === 'gross' ? 'brut' : 'net'} ${
-                      period === 'monthly' ? 'mensuel' : period === 'yearly' ? 'annuel' : 'journalier'
-                    }`}
-                  </Text>
-                  <Text style={[styles.inputDisplay, { color: theme.text }]}>
-                    {inputValue || '0'} {symbol}
-                  </Text>
-                </View>
-              </EditableFieldWrapper>
-            </TouchableOpacity>
-          </View>
-
-          <View style={{ height: 8 }} />
-
-          <View
-            onLayout={(e) => {
-              gridYRef.current = e.nativeEvent.layout.y;
-            }}
-          >
+          <View>
             <AppCard>
-              <ResultGrid results={results} symbol={symbol} activeField={activeField} onFieldPress={handleFieldPress} />
+              <ResultGrid results={results} symbol={symbol} />
             </AppCard>
           </View>
 
@@ -520,13 +477,10 @@ const styles = StyleSheet.create({
   summaryCard: { marginBottom: 8 },
   summaryLabel: { fontSize: 11, fontWeight: '600', marginBottom: 2 },
   summaryValue: { fontSize: 20, fontWeight: '900' },
+  summaryHint: { marginTop: 4, fontSize: 11, fontWeight: '600' },
   detailBtn: { marginTop: 8, paddingVertical: 8, borderTopWidth: 1, alignItems: 'center' },
   detailBtnText: { fontSize: 13, fontWeight: '700' },
   lockHint: { fontSize: 12, marginTop: 8, fontWeight: '600' },
-  controlsRow: { width: '100%', marginBottom: 8 },
-  inputInner: { padding: 12 },
-  inputLabel: { fontSize: 11, fontWeight: '500', marginBottom: 2 },
-  inputDisplay: { fontSize: 22, fontWeight: '800' },
   sectionTitle: { fontSize: 14, fontWeight: '700' },
   historyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   sortBtn: { fontSize: 16, padding: 2 },
