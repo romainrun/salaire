@@ -39,6 +39,15 @@
       "bundler": "metro"
     },
     "plugins": [
+      "./plugins/with-modular-headers",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ],
       [
         "react-native-google-mobile-ads",
         {
@@ -48,8 +57,7 @@
           "optimizeInitialization": true,
           "optimizeAdLoading": true
         }
-      ],
-      "expo-build-properties"
+      ]
     ],
     "extra": {
       "eas": {
