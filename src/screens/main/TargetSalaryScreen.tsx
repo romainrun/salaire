@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, StyleSheet, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
@@ -28,6 +28,8 @@ export function TargetSalaryScreen() {
 
   const [targetInput, setTargetInput] = useState('');
   const [increasePercent, setIncreasePercent] = useState(0);
+  const hasTrackedViewRef = useRef(false);
+  const hasTrackedFirstResultRef = useRef(false);
 
   const targetNet = parseInputAmount(targetInput);
   const sliderTarget = results.netMonthly > 0 && increasePercent > 0
@@ -47,7 +49,27 @@ export function TargetSalaryScreen() {
     }
   };
 
+  useEffect(() => {
+    if (hasTrackedViewRef.current) return;
+    hasTrackedViewRef.current = true;
+    analyticsService.trackEvent('target_screen_viewed', {
+      has_current_net: results.netMonthly > 0,
+    });
+  }, [results.netMonthly]);
+
+  useEffect(() => {
+    if (effectiveTarget <= 0 || hasTrackedFirstResultRef.current) return;
+    hasTrackedFirstResultRef.current = true;
+    analyticsService.trackEvent('target_first_result_seen', {
+      target_amount: Math.round(effectiveTarget),
+      based_on_slider: increasePercent > 0,
+    });
+  }, [effectiveTarget, increasePercent]);
+
   const handleShare = async () => {
+    analyticsService.trackEvent('target_share_tapped', {
+      has_target: effectiveTarget > 0,
+    });
     const text = [
       '🎯 Objectif Salaire',
       `Net mensuel visé : ${formatCurrency(effectiveTarget, symbol)}`,
@@ -100,6 +122,12 @@ export function TargetSalaryScreen() {
               step={1}
               value={increasePercent}
               onValueChange={handleSliderChange}
+              onSlidingComplete={(value) => {
+                analyticsService.trackEvent('target_slider_applied', {
+                  increase_percent: Math.round(value),
+                  base_net: Math.round(results.netMonthly),
+                });
+              }}
               minimumTrackTintColor={theme.primary}
               maximumTrackTintColor={theme.surfaceLight}
               thumbTintColor={theme.primary}

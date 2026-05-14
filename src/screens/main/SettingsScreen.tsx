@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
@@ -49,6 +49,7 @@ export function SettingsScreen() {
   const salaryMode = useSalaryStore((s) => s.mode);
   const setSalaryMode = useSalaryStore((s) => s.setMode);
   const [unlockAdvancedVisible, setUnlockAdvancedVisible] = useState(false);
+  const hasTrackedViewRef = useRef(false);
 
   const themeOptions: ThemeMode[] = ['dark', 'light', 'system'];
   const themeLabels = ['Sombre', 'Clair', 'Système'];
@@ -69,7 +70,14 @@ export function SettingsScreen() {
   const handleClearHistory = () => {
     Alert.alert('Effacer l\'historique', 'Êtes-vous sûr ?', [
       { text: 'Annuler', style: 'cancel' },
-      { text: 'Effacer', style: 'destructive', onPress: clearHistory },
+      {
+        text: 'Effacer',
+        style: 'destructive',
+        onPress: () => {
+          clearHistory();
+          analyticsService.trackEvent('history_cleared', { source: 'settings' });
+        },
+      },
     ]);
   };
 
@@ -83,6 +91,7 @@ export function SettingsScreen() {
           resetSalaryData();
           resetUnlocks();
           onboarding.resetOnboarding();
+          analyticsService.trackEvent('app_reset_confirmed', { source: 'settings' });
         },
       },
     ]);
@@ -108,8 +117,15 @@ export function SettingsScreen() {
 
   const handleRate = () => {
     setRatePromptSeen(true);
+    analyticsService.trackEvent('rate_tapped', { source: 'settings' });
     Alert.alert('Merci !', 'Merci de votre soutien ❤️');
   };
+
+  useEffect(() => {
+    if (hasTrackedViewRef.current) return;
+    hasTrackedViewRef.current = true;
+    analyticsService.trackEvent('settings_screen_viewed');
+  }, []);
 
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
 

@@ -89,6 +89,8 @@ export function HomeScreen() {
   const [unlockTarget, setUnlockTarget] = useState<'history' | 'adFree'>('adFree');
   const [hasTriggeredFirstValueAd, setHasTriggeredFirstValueAd] = useState(false);
   const [inputSelection, setInputSelection] = useState({ start: 0, end: 0 });
+  const hasTrackedViewRef = useRef(false);
+  const prevKeyboardVisibleRef = useRef(false);
 
   const {
     items: historyItems,
@@ -114,6 +116,24 @@ export function HomeScreen() {
 
   const openKeyboard = useCallback(() => setKeyboardVisible(true), []);
   const closeKeyboard = useCallback(() => setKeyboardVisible(false), []);
+
+  useEffect(() => {
+    if (hasTrackedViewRef.current) return;
+    hasTrackedViewRef.current = true;
+    analyticsService.trackEvent('home_screen_viewed', {
+      country_code: country,
+      has_history: historyItems.length > 0,
+    });
+  }, [country, historyItems.length]);
+
+  useEffect(() => {
+    if (prevKeyboardVisibleRef.current === keyboardVisible) return;
+    prevKeyboardVisibleRef.current = keyboardVisible;
+    analyticsService.trackEvent('home_keyboard_toggled', {
+      visible: keyboardVisible,
+      input_type: inputType,
+    });
+  }, [inputType, keyboardVisible]);
 
   useEffect(() => {
     const handler = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -182,6 +202,10 @@ export function HomeScreen() {
     const targetField: keyof SalaryResults = type === 'gross' ? 'grossMonthly' : 'netMonthly';
     const targetValue = type === 'gross' ? results.grossMonthly : results.netMonthly;
     updateFromField(targetField, targetValue);
+    analyticsService.trackEvent('home_salary_card_edit_started', {
+      selected_card: type,
+      amount: Math.round(targetValue),
+    });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveField('input');
     openKeyboard();
@@ -218,6 +242,9 @@ export function HomeScreen() {
     const cursor = value.length;
     setInputSelection({ start: cursor, end: cursor });
     setActiveField('input');
+    analyticsService.trackEvent('home_recent_value_selected', {
+      selected_value: Math.round(val),
+    });
   }, [setActiveField, setInputValue]);
 
   const handleSmicPress = useCallback(() => {
@@ -226,6 +253,9 @@ export function HomeScreen() {
       const value = smicValue.toString();
       const cursor = value.length;
       setInputSelection({ start: cursor, end: cursor });
+      analyticsService.trackEvent('home_smic_applied', {
+        smic_value: Math.round(smicValue),
+      });
     }
   }, [smicValue, fillSmic]);
 
@@ -234,6 +264,7 @@ export function HomeScreen() {
     const nextValue = Math.max(0, parseSalaryInput(inputValue) + amount).toString();
     const cursor = nextValue.length;
     setInputSelection({ start: cursor, end: cursor });
+    analyticsService.trackEvent('home_quick_add_applied', { amount });
   }, [addQuickAmount, inputValue]);
 
   const shareText = formatShareText({
@@ -267,7 +298,16 @@ export function HomeScreen() {
   const openUnlockModal = useCallback((target: 'history' | 'adFree') => {
     setUnlockTarget(target);
     setUnlockModalVisible(true);
+    analyticsService.trackEvent('home_unlock_modal_opened', { target });
   }, []);
+
+  const handleKeyboardSubmit = useCallback(() => {
+    analyticsService.trackEvent('home_salary_input_submitted', {
+      input_type: inputType,
+      input_value: Math.round(parseSalaryInput(inputValue)),
+    });
+    closeKeyboard();
+  }, [closeKeyboard, inputType, inputValue]);
 
   const handleAutoSave = useCallback(() => {
     if (parseSalaryInput(inputValue) <= 0) return;
@@ -345,6 +385,7 @@ export function HomeScreen() {
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                   setQuickMode(true);
+                  analyticsService.trackEvent('home_quick_mode_opened');
                 }}
               >
                 <View style={[styles.quickBtn, { borderColor: theme.primary }]}>
@@ -448,6 +489,10 @@ export function HomeScreen() {
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setBreakdownVisible(true);
+                  analyticsService.trackEvent('home_breakdown_opened', {
+                    gross_monthly: Math.round(results.grossMonthly),
+                    net_monthly: Math.round(results.netMonthly),
+                  });
                 }}
               >
                 <View style={[styles.detailBtn, { borderColor: theme.border }]}>
@@ -503,7 +548,7 @@ export function HomeScreen() {
         <CustomKeyboard
           visible={keyboardVisible}
           onClose={closeKeyboard}
-          onSubmit={closeKeyboard}
+          onSubmit={handleKeyboardSubmit}
           onHeightChange={setKeyboardHeight}
           onKeyPress={handleKeyPress}
           onDelete={handleDelete}
