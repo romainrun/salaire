@@ -48,7 +48,8 @@
           "optimizeInitialization": true,
           "optimizeAdLoading": true
         }
-      ]
+      ],
+      "expo-build-properties"
     ],
     "extra": {
       "eas": {
