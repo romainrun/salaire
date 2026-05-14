@@ -20,6 +20,34 @@ function injectUseModularHeaders(podfileContent) {
   );
 }
 
+function injectAllowNonModularIncludes(podfileContent) {
+  if (
+    podfileContent.includes(
+      "CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES"
+    )
+  ) {
+    return podfileContent;
+  }
+
+  const buildSettingSnippet =
+    "  installer.pods_project.targets.each do |target|\n" +
+    "    target.build_configurations.each do |config|\n" +
+    "      config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'\n" +
+    "    end\n" +
+    "  end\n";
+
+  const postInstallPattern = /post_install do \|installer\|/;
+
+  if (postInstallPattern.test(podfileContent)) {
+    return podfileContent.replace(
+      postInstallPattern,
+      `post_install do |installer|\n${buildSettingSnippet}`
+    );
+  }
+
+  return `${podfileContent}\npost_install do |installer|\n${buildSettingSnippet}end\n`;
+}
+
 function withModularHeaders(config) {
   return withDangerousMod(config, [
     'ios',
@@ -31,7 +59,10 @@ function withModularHeaders(config) {
       }
 
       const podfileContent = fs.readFileSync(podfilePath, 'utf8');
-      const updatedPodfileContent = injectUseModularHeaders(podfileContent);
+      const withModularHeaders = injectUseModularHeaders(podfileContent);
+      const updatedPodfileContent = injectAllowNonModularIncludes(
+        withModularHeaders
+      );
 
       if (updatedPodfileContent !== podfileContent) {
         fs.writeFileSync(podfilePath, updatedPodfileContent, 'utf8');
@@ -44,3 +75,4 @@ function withModularHeaders(config) {
 
 module.exports = withModularHeaders;
 module.exports.injectUseModularHeaders = injectUseModularHeaders;
+module.exports.injectAllowNonModularIncludes = injectAllowNonModularIncludes;
