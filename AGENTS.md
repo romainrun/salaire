@@ -13,6 +13,10 @@ This is a React Native (Expo SDK 54) salary converter app with TypeScript, Zusta
 - **Start dev server**: `npx expo start --host lan --port 8086`
 - **Start web**: `npx expo start --web --port 8086`
 
+### Testing preferences
+- Do **not** run manual UI/UX testing (including computer-use sessions, screenshots, or walkthrough videos) unless the user explicitly asks for it.
+- Default to non-UI checks (for example `npx tsc --noEmit`) when validation is needed and the change does not explicitly require manual UI verification.
+
 ### CI/CD
 - Push to `main` triggers deploy to VM via SSH (`.github/workflows/deploy.yml`)
 - Tags `*_Store`, `*_Android`, `*_iOS` trigger store builds
