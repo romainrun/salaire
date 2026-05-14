@@ -9,6 +9,9 @@ import {
   BackHandler,
   Animated,
   LayoutChangeEvent,
+  TextInput,
+  NativeSyntheticEvent,
+  TextInputSelectionChangeEventData,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -73,6 +76,8 @@ export function HomeScreen() {
   const smicValue = getSmicForCountry(country);
 
   const scrollRef = useRef<ScrollView>(null);
+  const grossInputRef = useRef<TextInput>(null);
+  const netInputRef = useRef<TextInput>(null);
   const inputYRef = useRef(0);
   const [scrollViewHeight, setScrollViewHeight] = useState(0);
   const [keyboardHeight, setKeyboardHeight] = useState(380);
@@ -83,6 +88,7 @@ export function HomeScreen() {
   const [unlockModalVisible, setUnlockModalVisible] = useState(false);
   const [unlockTarget, setUnlockTarget] = useState<'history' | 'adFree'>('adFree');
   const [hasTriggeredFirstValueAd, setHasTriggeredFirstValueAd] = useState(false);
+  const [inputSelection, setInputSelection] = useState({ start: 0, end: 0 });
 
   const {
     items: historyItems,
@@ -146,20 +152,49 @@ export function HomeScreen() {
   }, [keyboardVisible, scrollToFocused]);
 
   const handleKeyPress = useCallback((key: string) => {
-    setInputValue(inputValue + key);
-  }, [inputValue, setInputValue]);
+    const start = inputSelection.start;
+    const end = inputSelection.end;
+    const nextValue = `${inputValue.slice(0, start)}${key}${inputValue.slice(end)}`;
+    const nextCursor = start + key.length;
+    setInputValue(nextValue);
+    setInputSelection({ start: nextCursor, end: nextCursor });
+  }, [inputSelection.end, inputSelection.start, inputValue, setInputValue]);
 
   const handleDelete = useCallback(() => {
-    setInputValue(inputValue.slice(0, -1));
-  }, [inputValue, setInputValue]);
+    const start = inputSelection.start;
+    const end = inputSelection.end;
+    if (start !== end) {
+      const nextValue = `${inputValue.slice(0, start)}${inputValue.slice(end)}`;
+      setInputValue(nextValue);
+      setInputSelection({ start, end: start });
+      return;
+    }
+    if (start <= 0) {
+      return;
+    }
+    const nextValue = `${inputValue.slice(0, start - 1)}${inputValue.slice(end)}`;
+    const nextCursor = start - 1;
+    setInputValue(nextValue);
+    setInputSelection({ start: nextCursor, end: nextCursor });
+  }, [inputSelection.end, inputSelection.start, inputValue, setInputValue]);
 
-  const handleTopCardPress = useCallback((type: 'gross' | 'net') => {
+  const focusEditableCard = useCallback((type: 'gross' | 'net') => {
     const targetField: keyof SalaryResults = type === 'gross' ? 'grossMonthly' : 'netMonthly';
     const targetValue = type === 'gross' ? results.grossMonthly : results.netMonthly;
     updateFromField(targetField, targetValue);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveField('input');
     openKeyboard();
+    const cursor = `${targetValue}`.length;
+    setInputSelection({ start: cursor, end: cursor });
+    requestAnimationFrame(() => {
+      if (type === 'gross') {
+        grossInputRef.current?.focus();
+      } else {
+        netInputRef.current?.focus();
+      }
+      setInputSelection({ start: cursor, end: cursor });
+    });
     scrollToFocused(inputYRef.current);
   }, [
     openKeyboard,
@@ -170,16 +205,36 @@ export function HomeScreen() {
     updateFromField,
   ]);
 
+  const handleSelectionChange = useCallback(
+    (event: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
+      setInputSelection(event.nativeEvent.selection);
+    },
+    []
+  );
+
   const handleRecentSelect = useCallback((val: number) => {
-    setInputValue(val.toString());
+    const value = val.toString();
+    setInputValue(value);
+    const cursor = value.length;
+    setInputSelection({ start: cursor, end: cursor });
     setActiveField('input');
   }, [setActiveField, setInputValue]);
 
   const handleSmicPress = useCallback(() => {
     if (smicValue) {
       fillSmic(smicValue);
+      const value = smicValue.toString();
+      const cursor = value.length;
+      setInputSelection({ start: cursor, end: cursor });
     }
   }, [smicValue, fillSmic]);
+
+  const handleQuickAdd = useCallback((amount: number) => {
+    addQuickAmount(amount);
+    const nextValue = Math.max(0, parseSalaryInput(inputValue) + amount).toString();
+    const cursor = nextValue.length;
+    setInputSelection({ start: cursor, end: cursor });
+  }, [addQuickAmount, inputValue]);
 
   const shareText = formatShareText({
     inputType,
@@ -315,30 +370,70 @@ export function HomeScreen() {
             }}
           >
             <View style={styles.summaryCol}>
-              <TouchableOpacity onPress={() => handleTopCardPress('gross')} activeOpacity={0.9}>
+              <TouchableOpacity onPress={() => focusEditableCard('gross')} activeOpacity={0.9}>
                 <EditableFieldWrapper isActive={activeField === 'input' && inputType === 'gross'}>
                   <AppCard style={styles.summaryCard}>
                     <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>{LABELS.grossMonthly}</Text>
-                    <AnimatedNumber
-                      value={results.grossMonthly}
-                      symbol={symbol}
-                      style={[styles.summaryValue, { color: theme.text }]}
-                    />
+                    {activeField === 'input' && inputType === 'gross' ? (
+                      <View style={styles.editRow}>
+                        <TextInput
+                          ref={grossInputRef}
+                          value={inputValue}
+                          style={[styles.summaryInput, { color: theme.text, borderBottomColor: theme.primary }]}
+                          selection={inputSelection}
+                          showSoftInputOnFocus={false}
+                          keyboardType="decimal-pad"
+                          onSelectionChange={handleSelectionChange}
+                          onFocus={() => {
+                            openKeyboard();
+                            scrollToFocused(inputYRef.current);
+                          }}
+                          selectionColor={theme.primary}
+                        />
+                        <Text style={[styles.currencyInline, { color: theme.text }]}>{symbol}</Text>
+                      </View>
+                    ) : (
+                      <AnimatedNumber
+                        value={results.grossMonthly}
+                        symbol={symbol}
+                        style={[styles.summaryValue, { color: theme.text }]}
+                      />
+                    )}
                     <Text style={[styles.summaryHint, { color: theme.textMuted }]}>Touchez pour modifier</Text>
                   </AppCard>
                 </EditableFieldWrapper>
               </TouchableOpacity>
             </View>
             <View style={styles.summaryCol}>
-              <TouchableOpacity onPress={() => handleTopCardPress('net')} activeOpacity={0.9}>
+              <TouchableOpacity onPress={() => focusEditableCard('net')} activeOpacity={0.9}>
                 <EditableFieldWrapper isActive={activeField === 'input' && inputType === 'net'}>
                   <AppCard style={styles.summaryCard}>
                     <Text style={[styles.summaryLabel, { color: theme.primary }]}>{LABELS.netMonthly}</Text>
-                    <AnimatedNumber
-                      value={results.netMonthly}
-                      symbol={symbol}
-                      style={[styles.summaryValue, { color: theme.primary }]}
-                    />
+                    {activeField === 'input' && inputType === 'net' ? (
+                      <View style={styles.editRow}>
+                        <TextInput
+                          ref={netInputRef}
+                          value={inputValue}
+                          style={[styles.summaryInput, { color: theme.primary, borderBottomColor: theme.primary }]}
+                          selection={inputSelection}
+                          showSoftInputOnFocus={false}
+                          keyboardType="decimal-pad"
+                          onSelectionChange={handleSelectionChange}
+                          onFocus={() => {
+                            openKeyboard();
+                            scrollToFocused(inputYRef.current);
+                          }}
+                          selectionColor={theme.primary}
+                        />
+                        <Text style={[styles.currencyInline, { color: theme.primary }]}>{symbol}</Text>
+                      </View>
+                    ) : (
+                      <AnimatedNumber
+                        value={results.netMonthly}
+                        symbol={symbol}
+                        style={[styles.summaryValue, { color: theme.primary }]}
+                      />
+                    )}
                     <Text style={[styles.summaryHint, { color: theme.primary }]}>Touchez pour modifier</Text>
                   </AppCard>
                 </EditableFieldWrapper>
@@ -414,7 +509,7 @@ export function HomeScreen() {
           onDelete={handleDelete}
           recentValues={recentValues}
           onRecentSelect={handleRecentSelect}
-          onQuickAdd={addQuickAmount}
+          onQuickAdd={handleQuickAdd}
           smicValue={smicValue}
           onSmicPress={handleSmicPress}
           currencySymbol={symbol}
@@ -464,6 +559,16 @@ const styles = StyleSheet.create({
   summaryCol: { flex: 1 },
   summaryCard: { marginBottom: 8 },
   summaryLabel: { fontSize: 11, fontWeight: '600', marginBottom: 2 },
+  editRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 4 },
+  summaryInput: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: '900',
+    paddingVertical: 0,
+    minHeight: 28,
+    borderBottomWidth: 1,
+  },
+  currencyInline: { fontSize: 18, fontWeight: '800', marginBottom: 2 },
   summaryValue: { fontSize: 20, fontWeight: '900' },
   summaryHint: { marginTop: 4, fontSize: 11, fontWeight: '600' },
   detailBtn: { marginTop: 8, paddingVertical: 8, borderTopWidth: 1, alignItems: 'center' },
