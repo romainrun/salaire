@@ -151,8 +151,24 @@ export const useSalaryStore = create<SalaryState>()(
           monthsPerYear: state.monthsPerYear,
         });
         const isGross = field.startsWith('gross');
-        const inputValue = (isGross ? results.grossMonthly : results.netMonthly).toString();
-        set({ results, inputValue, inputType: isGross ? 'gross' : 'net', period: 'monthly', activeField: field });
+        const period: SalaryPeriod = field.includes('Monthly')
+          ? 'monthly'
+          : field.includes('Yearly')
+            ? 'yearly'
+            : 'daily';
+        const periodValue = isGross
+          ? period === 'yearly'
+            ? results.grossYearly
+            : period === 'daily'
+              ? results.grossDaily
+              : results.grossMonthly
+          : period === 'yearly'
+            ? results.netYearly
+            : period === 'daily'
+              ? results.netDaily
+              : results.netMonthly;
+        const inputValue = periodValue.toString();
+        set({ results, inputValue, inputType: isGross ? 'gross' : 'net', period, activeField: field });
       },
 
       recalculate: () => {

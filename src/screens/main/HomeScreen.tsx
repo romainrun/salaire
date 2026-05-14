@@ -23,6 +23,7 @@ import { useOnboardingStore } from '../../store/onboardingStore';
 import { AppCard } from '../../components/AppCard';
 import { ResultGrid } from '../../components/ResultGrid';
 import { CustomKeyboard } from '../../components/CustomKeyboard';
+import { SegmentedControl } from '../../components/SegmentedControl';
 import { SalaryBreakdownModal } from '../../components/SalaryBreakdownModal';
 import { SalaryChart } from '../../components/SalaryChart';
 import { HistoryItemRow } from '../../components/HistoryItem';
@@ -37,7 +38,7 @@ import { parseSalaryInput } from '../../utils/parseSalaryInput';
 import { formatShareText } from '../../features/share/formatShareText';
 import { useHistory, type SortMode } from '../../features/history/useHistory';
 import { APP_NAME, LABELS } from '../../constants/appName';
-import type { SalaryResults } from '../../types';
+import type { SalaryPeriod, SalaryResults } from '../../types';
 import { AdBanner } from '../../components/AdBanner';
 import { AdUnlockModal } from '../../features/unlock/AdUnlockModal';
 import { useInterstitialAd } from '../../features/ads/useInterstitialAd';
@@ -49,6 +50,7 @@ import { analyticsService } from '../../features/analytics/analyticsService';
 import type { MainTabParamList } from '../../navigation/types';
 
 const KEYBOARD_VISIBLE_MARGIN = 20;
+const PERIOD_VALUES: SalaryPeriod[] = ['monthly', 'yearly', 'daily'];
 
 export function HomeScreen() {
   const { theme } = useTheme();
@@ -91,6 +93,35 @@ export function HomeScreen() {
   const [inputSelection, setInputSelection] = useState({ start: 0, end: 0 });
   const hasTrackedViewRef = useRef(false);
   const prevKeyboardVisibleRef = useRef(false);
+  const selectedPeriodIndex = PERIOD_VALUES.indexOf(period);
+
+  const periodCardConfig = useMemo(() => {
+    if (period === 'yearly') {
+      return {
+        grossField: 'grossYearly' as const,
+        netField: 'netYearly' as const,
+        grossValue: results.grossYearly,
+        netValue: results.netYearly,
+        labelSuffix: LABELS.yearlyFull,
+      };
+    }
+    if (period === 'daily') {
+      return {
+        grossField: 'grossDaily' as const,
+        netField: 'netDaily' as const,
+        grossValue: results.grossDaily,
+        netValue: results.netDaily,
+        labelSuffix: LABELS.dailyFull,
+      };
+    }
+    return {
+      grossField: 'grossMonthly' as const,
+      netField: 'netMonthly' as const,
+      grossValue: results.grossMonthly,
+      netValue: results.netMonthly,
+      labelSuffix: LABELS.monthlyFull,
+    };
+  }, [period, results.grossDaily, results.grossMonthly, results.grossYearly, results.netDaily, results.netMonthly, results.netYearly]);
 
   const {
     items: historyItems,
@@ -107,12 +138,6 @@ export function HomeScreen() {
   useEffect(() => {
     setIsUserTyping(keyboardVisible);
   }, [keyboardVisible, setIsUserTyping]);
-
-  useEffect(() => {
-    if (period !== 'monthly') {
-      setPeriod('monthly');
-    }
-  }, [period, setPeriod]);
 
   const openKeyboard = useCallback(() => setKeyboardVisible(true), []);
   const closeKeyboard = useCallback(() => setKeyboardVisible(false), []);
@@ -199,12 +224,13 @@ export function HomeScreen() {
   }, [inputSelection.end, inputSelection.start, inputValue, setInputValue]);
 
   const focusEditableCard = useCallback((type: 'gross' | 'net') => {
-    const targetField: keyof SalaryResults = type === 'gross' ? 'grossMonthly' : 'netMonthly';
-    const targetValue = type === 'gross' ? results.grossMonthly : results.netMonthly;
+    const targetField: keyof SalaryResults = type === 'gross' ? periodCardConfig.grossField : periodCardConfig.netField;
+    const targetValue = type === 'gross' ? periodCardConfig.grossValue : periodCardConfig.netValue;
     updateFromField(targetField, targetValue);
     analyticsService.trackEvent('home_salary_card_edit_started', {
       selected_card: type,
       amount: Math.round(targetValue),
+      period,
     });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveField('input');
@@ -222,8 +248,11 @@ export function HomeScreen() {
     scrollToFocused(inputYRef.current);
   }, [
     openKeyboard,
-    results.grossMonthly,
-    results.netMonthly,
+    period,
+    periodCardConfig.grossField,
+    periodCardConfig.grossValue,
+    periodCardConfig.netField,
+    periodCardConfig.netValue,
     scrollToFocused,
     setActiveField,
     updateFromField,
@@ -404,6 +433,22 @@ export function HomeScreen() {
             </View>
           </View>
 
+          <View style={styles.periodSwitchWrap}>
+            <SegmentedControl
+              values={[LABELS.monthly, LABELS.yearly, LABELS.daily]}
+              selectedIndex={selectedPeriodIndex < 0 ? 0 : selectedPeriodIndex}
+              onChange={(index) => {
+                const nextPeriod = PERIOD_VALUES[index];
+                if (!nextPeriod || nextPeriod === period) return;
+                Haptics.selectionAsync();
+                setPeriod(nextPeriod);
+                analyticsService.trackEvent('home_period_switched', {
+                  period: nextPeriod,
+                });
+              }}
+            />
+          </View>
+
           <View
             style={styles.summaryRow}
             onLayout={(e) => {
@@ -414,7 +459,9 @@ export function HomeScreen() {
               <TouchableOpacity onPress={() => focusEditableCard('gross')} activeOpacity={0.9}>
                 <EditableFieldWrapper isActive={activeField === 'input' && inputType === 'gross'}>
                   <AppCard style={styles.summaryCard}>
-                    <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>{LABELS.grossMonthly}</Text>
+                    <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>
+                      {`${LABELS.gross} ${periodCardConfig.labelSuffix}`}
+                    </Text>
                     {activeField === 'input' && inputType === 'gross' ? (
                       <View style={styles.editRow}>
                         <TextInput
@@ -435,7 +482,7 @@ export function HomeScreen() {
                       </View>
                     ) : (
                       <AnimatedNumber
-                        value={results.grossMonthly}
+                        value={periodCardConfig.grossValue}
                         symbol={symbol}
                         style={[styles.summaryValue, { color: theme.text }]}
                       />
@@ -449,7 +496,9 @@ export function HomeScreen() {
               <TouchableOpacity onPress={() => focusEditableCard('net')} activeOpacity={0.9}>
                 <EditableFieldWrapper isActive={activeField === 'input' && inputType === 'net'}>
                   <AppCard style={styles.summaryCard}>
-                    <Text style={[styles.summaryLabel, { color: theme.primary }]}>{LABELS.netMonthly}</Text>
+                    <Text style={[styles.summaryLabel, { color: theme.primary }]}>
+                      {`${LABELS.net} ${periodCardConfig.labelSuffix}`}
+                    </Text>
                     {activeField === 'input' && inputType === 'net' ? (
                       <View style={styles.editRow}>
                         <TextInput
@@ -470,7 +519,7 @@ export function HomeScreen() {
                       </View>
                     ) : (
                       <AnimatedNumber
-                        value={results.netMonthly}
+                        value={periodCardConfig.netValue}
                         symbol={symbol}
                         style={[styles.summaryValue, { color: theme.primary }]}
                       />
@@ -597,6 +646,7 @@ const styles = StyleSheet.create({
   flagButton: { paddingHorizontal: 2, paddingVertical: 2 },
   flag: { fontSize: 18 },
   headerActions: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  periodSwitchWrap: { marginBottom: 8 },
   quickBtn: { borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   quickBtnText: { fontSize: 16 },
   headerIcon: { fontSize: 17, padding: 4 },
