@@ -153,24 +153,15 @@ export function HomeScreen() {
     setInputValue(inputValue.slice(0, -1));
   }, [inputValue, setInputValue]);
 
-  const handleTopInputPress = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setActiveField('input');
-    openKeyboard();
-    scrollToFocused(inputYRef.current);
-  }, [openKeyboard, scrollToFocused, setActiveField]);
-
-  const handleSwapInputType = useCallback(() => {
-    const nextType = inputType === 'gross' ? 'net' : 'gross';
-    const targetField: keyof SalaryResults = nextType === 'gross' ? 'grossMonthly' : 'netMonthly';
-    const targetValue = nextType === 'gross' ? results.grossMonthly : results.netMonthly;
+  const handleTopCardPress = useCallback((type: 'gross' | 'net') => {
+    const targetField: keyof SalaryResults = type === 'gross' ? 'grossMonthly' : 'netMonthly';
+    const targetValue = type === 'gross' ? results.grossMonthly : results.netMonthly;
     updateFromField(targetField, targetValue);
-    setActiveField('input');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActiveField('input');
     openKeyboard();
     scrollToFocused(inputYRef.current);
   }, [
-    inputType,
     openKeyboard,
     results.grossMonthly,
     results.netMonthly,
@@ -270,11 +261,6 @@ export function HomeScreen() {
     }
   }, [unlockAdFree]);
 
-  const editableLabel = inputType === 'gross' ? LABELS.grossMonthly : LABELS.netMonthly;
-  const editableValue = inputType === 'gross' ? results.grossMonthly : results.netMonthly;
-  const mirrorLabel = inputType === 'gross' ? LABELS.netMonthly : LABELS.grossMonthly;
-  const mirrorValue = inputType === 'gross' ? results.netMonthly : results.grossMonthly;
-
   if (quickMode) {
     return <QuickModeScreen onClose={() => setQuickMode(false)} />;
   }
@@ -329,12 +315,12 @@ export function HomeScreen() {
             }}
           >
             <View style={styles.summaryCol}>
-              <TouchableOpacity onPress={handleTopInputPress} activeOpacity={0.9}>
-                <EditableFieldWrapper isActive={activeField === 'input'}>
+              <TouchableOpacity onPress={() => handleTopCardPress('gross')} activeOpacity={0.9}>
+                <EditableFieldWrapper isActive={activeField === 'input' && inputType === 'gross'}>
                   <AppCard style={styles.summaryCard}>
-                    <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>{editableLabel}</Text>
+                    <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>{LABELS.grossMonthly}</Text>
                     <AnimatedNumber
-                      value={editableValue}
+                      value={results.grossMonthly}
                       symbol={symbol}
                       style={[styles.summaryValue, { color: theme.text }]}
                     />
@@ -344,16 +330,18 @@ export function HomeScreen() {
               </TouchableOpacity>
             </View>
             <View style={styles.summaryCol}>
-              <TouchableOpacity onPress={handleSwapInputType} activeOpacity={0.9}>
-                <AppCard style={styles.summaryCard}>
-                  <Text style={[styles.summaryLabel, { color: theme.primary }]}>{mirrorLabel}</Text>
-                  <AnimatedNumber
-                    value={mirrorValue}
-                    symbol={symbol}
-                    style={[styles.summaryValue, { color: theme.primary }]}
-                  />
-                  <Text style={[styles.summaryHint, { color: theme.primary }]}>Utiliser comme base</Text>
-                </AppCard>
+              <TouchableOpacity onPress={() => handleTopCardPress('net')} activeOpacity={0.9}>
+                <EditableFieldWrapper isActive={activeField === 'input' && inputType === 'net'}>
+                  <AppCard style={styles.summaryCard}>
+                    <Text style={[styles.summaryLabel, { color: theme.primary }]}>{LABELS.netMonthly}</Text>
+                    <AnimatedNumber
+                      value={results.netMonthly}
+                      symbol={symbol}
+                      style={[styles.summaryValue, { color: theme.primary }]}
+                    />
+                    <Text style={[styles.summaryHint, { color: theme.primary }]}>Touchez pour modifier</Text>
+                  </AppCard>
+                </EditableFieldWrapper>
               </TouchableOpacity>
             </View>
           </View>
