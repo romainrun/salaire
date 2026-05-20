@@ -22,6 +22,7 @@ import { useSalaryStore } from '../../store/salaryStore';
 import { useOnboardingStore } from '../../store/onboardingStore';
 import { AppCard } from '../../components/AppCard';
 import { ResultGrid } from '../../components/ResultGrid';
+import { ImmersiveBackground } from '../../components/ImmersiveBackground';
 import { CustomKeyboard } from '../../components/CustomKeyboard';
 import { SegmentedControl } from '../../components/SegmentedControl';
 import { SalaryBreakdownModal } from '../../components/SalaryBreakdownModal';
@@ -391,6 +392,7 @@ export function HomeScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
+      <ImmersiveBackground />
       <View style={styles.flex}>
         <ScrollView
           ref={scrollRef}
@@ -417,18 +419,24 @@ export function HomeScreen() {
                   analyticsService.trackEvent('home_quick_mode_opened');
                 }}
               >
-                <View style={[styles.quickBtn, { borderColor: theme.primary }]}>
+                <View style={[styles.quickBtn, { borderColor: theme.primary, backgroundColor: theme.surface }]}>
                   <Text style={[styles.quickBtnText, { color: theme.primary }]}>⚡</Text>
                 </View>
               </PressableScale>
               <PressableScale onPress={handleShare}>
-                <Text style={styles.headerIcon}>📤</Text>
+                <View style={[styles.iconChip, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                  <Text style={styles.headerIcon}>📤</Text>
+                </View>
               </PressableScale>
               <PressableScale onPress={handleAutoSave}>
-                <Text style={styles.headerIcon}>💾</Text>
+                <View style={[styles.iconChip, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                  <Text style={styles.headerIcon}>💾</Text>
+                </View>
               </PressableScale>
               <PressableScale onPress={() => openUnlockModal('adFree')}>
-                <Text style={styles.headerIcon}>💎</Text>
+                <View style={[styles.iconChip, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                  <Text style={styles.headerIcon}>💎</Text>
+                </View>
               </PressableScale>
             </View>
           </View>
@@ -642,14 +650,22 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: 14, paddingTop: 8, paddingBottom: 6 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  appTitle: { fontSize: 22, fontWeight: '800' },
+  appTitle: { fontSize: 22, fontWeight: '800', letterSpacing: 0.3 },
   flagButton: { paddingHorizontal: 2, paddingVertical: 2 },
   flag: { fontSize: 18 },
   headerActions: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   periodSwitchWrap: { marginBottom: 8 },
-  quickBtn: { borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  quickBtn: { borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4 },
   quickBtnText: { fontSize: 16 },
-  headerIcon: { fontSize: 17, padding: 4 },
+  iconChip: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerIcon: { fontSize: 16 },
   summaryRow: { flexDirection: 'row', gap: 8, marginBottom: 0, width: '100%' },
   summaryCol: { flex: 1 },
   summaryCard: { marginBottom: 8 },
