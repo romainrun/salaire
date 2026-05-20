@@ -12,6 +12,7 @@ import { CustomKeyboard } from '../../components/CustomKeyboard';
 import { EditableFieldWrapper } from '../../components/EditableFieldWrapper';
 import { AnimatedNumber } from '../../components/AnimatedNumber';
 import { PressableScale } from '../../components/PressableScale';
+import { ImmersiveBackground } from '../../components/ImmersiveBackground';
 import { APP_NAME } from '../../constants/appName';
 import type { SalaryInputType } from '../../types';
 
@@ -60,6 +61,7 @@ export function QuickModeScreen({ onClose }: QuickModeProps) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <ImmersiveBackground compact />
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.text }]}>{APP_NAME}</Text>
         <Text style={[styles.badge, { color: theme.primary }]}>⚡ Quick</Text>
