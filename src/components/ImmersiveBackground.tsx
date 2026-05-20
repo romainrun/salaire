@@ -37,7 +37,7 @@ export function ImmersiveBackground({ compact = false }: ImmersiveBackgroundProp
   const orbTwoY = drift.interpolate({ inputRange: [0, 1], outputRange: [14, -26] });
   const orbOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.16, 0.32] });
 
-  const backgroundColors = isDark
+  const backgroundColors: readonly [string, string, string] = isDark
     ? [theme.background, '#151528', '#121622']
     : [theme.background, '#EEF0FF', '#F5EFFE'];
 
